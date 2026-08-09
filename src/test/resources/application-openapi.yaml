@@ -1,0 +1,37 @@
+server:
+  port: 18080
+
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:17-alpine:///citypulse_catalog
+    username: citypulse
+    password: citypulse
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+
+app:
+  kafka:
+    bootstrap-servers: localhost:9092
+    username: openapi-user
+    password: openapi-password
+    sasl-mechanism: SCRAM-SHA-256
+    ca-certificate: classpath:keystore/ca.pem
+
+    topic:
+      events: citypulse.events.v1
+      events-dlt: citypulse.events.v1.DLT
+
+    consumer:
+      group-id: catalog-service-openapi
+      auto-offset-reset: earliest
+      concurrency: 1
+      auto-startup: false
+
+    retry:
+      max-attempts: 1
+      backoff-ms: 100
+
+    schema-registry:
+      url: http://localhost:8081
+      username: openapi-schema-user
+      password: openapi-schema-password
+      auto-register-schemas: false

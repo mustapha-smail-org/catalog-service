@@ -1,0 +1,29 @@
+app:
+  kafka:
+    bootstrap-servers: localhost:9092
+    username: test-user
+    password: test-password
+    sasl-mechanism: SCRAM-SHA-256
+    ca-certificate: classpath:keystore/ca.pem
+
+
+    topic:
+      events: ${KAFKA_EVENTS_TOPIC:citypulse.events.v1}
+      events-dlt: ${KAFKA_EVENTS_DLT_TOPIC:citypulse.events.v1.DLT}
+
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:catalog-service-v1}
+      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
+      concurrency: ${KAFKA_CONSUMER_CONCURRENCY:1}
+      auto-startup: false
+
+    retry:
+      max-attempts: ${KAFKA_RETRY_MAX_ATTEMPTS:3}
+      backoff-ms: ${KAFKA_RETRY_BACKOFF_MS:2000}
+
+
+    schema-registry:
+      url: http://localhost:8081
+      username: test-schema-user
+      password: test-schema-password
+      auto-register-schemas: false

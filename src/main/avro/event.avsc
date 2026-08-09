@@ -1,0 +1,253 @@
+{
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "default": null,
+      "name": "sourceEventId",
+      "type": [
+        "null",
+        "long"
+      ]
+    },
+    {
+      "name": "title",
+      "type": "string"
+    },
+    {
+      "default": null,
+      "name": "description",
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    {
+      "default": [],
+      "name": "categories",
+      "type": {
+        "items": "string",
+        "type": "array"
+      }
+    },
+    {
+      "default": null,
+      "name": "url",
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    {
+      "name": "startDate",
+      "type": {
+        "logicalType": "timestamp-millis",
+        "type": "long"
+      }
+    },
+    {
+      "default": null,
+      "name": "endDate",
+      "type": [
+        "null",
+        {
+          "logicalType": "timestamp-millis",
+          "type": "long"
+        }
+      ]
+    },
+    {
+      "name": "location",
+      "type": {
+        "fields": [
+          {
+            "default": null,
+            "name": "name",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "street",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "zipcode",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "city",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "latitude",
+            "type": [
+              "null",
+              "double"
+            ]
+          },
+          {
+            "default": null,
+            "name": "longitude",
+            "type": [
+              "null",
+              "double"
+            ]
+          }
+        ],
+        "name": "EventLocationAvro",
+        "type": "record"
+      }
+    },
+    {
+      "default": [],
+      "name": "occurrences",
+      "type": {
+        "items": {
+          "fields": [
+            {
+              "name": "start",
+              "type": {
+                "logicalType": "timestamp-millis",
+                "type": "long"
+              }
+            },
+            {
+              "default": null,
+              "name": "end",
+              "type": [
+                "null",
+                {
+                  "logicalType": "timestamp-millis",
+                  "type": "long"
+                }
+              ]
+            }
+          ],
+          "name": "EventOccurrenceAvro",
+          "type": "record"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "name": "accessibility",
+      "type": {
+        "fields": [
+          {
+            "default": false,
+            "name": "wheelchairAccessible",
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "name": "blindAccessible",
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "name": "deafAccessible",
+            "type": "boolean"
+          },
+          {
+            "default": null,
+            "name": "signLanguage",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "mentalAccessibility",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        ],
+        "name": "EventAccessibilityAvro",
+        "type": "record"
+      }
+    },
+    {
+      "name": "pricing",
+      "type": {
+        "fields": [
+          {
+            "default": null,
+            "name": "priceType",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "priceDetail",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "accessType",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "bookingUrl",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          {
+            "default": null,
+            "name": "bookingLinkText",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        ],
+        "name": "EventPricingAvro",
+        "type": "record"
+      }
+    },
+    {
+      "default": null,
+      "name": "sourceUpdatedAt",
+      "type": [
+        "null",
+        {
+          "logicalType": "timestamp-millis",
+          "type": "long"
+        }
+      ]
+    }
+  ],
+  "name": "EventAvro",
+  "namespace": "com.citypulse.events.avro",
+  "type": "record"
+}

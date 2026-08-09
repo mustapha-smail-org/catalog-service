@@ -1,3 +1,5 @@
+server:
+  port: 8081
 spring:
   application:
     name: catalog-service
@@ -72,7 +74,7 @@ app:
     username: ${KAFKA_USERNAME}
     password: ${KAFKA_PASSWORD}
     sasl-mechanism: ${KAFKA_SASL_MECHANISM:SCRAM-SHA-256}
-    ca-certificate: ${KAFKA_CA_CERTIFICATE:"classpath:keystore/ca.pem"}
+    ca-certificate: classpath:keystore/ca.pem
 
     topic:
       events: ${KAFKA_EVENTS_TOPIC:citypulse.events.v1}
