@@ -7,7 +7,7 @@
     <appender name="ConsoleApp" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>
-                %5p [correlationId:%X{correlationId:-none}] | time=%yellow(%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'})|level=%highlight(%-5level)|thread=%thread|env=%boldYellow(${activeProfile})|source=%boldBlue(%c{0})|message=%boldGreen(%msg)|exception=%red(%ex{3}%n)
+                time=%yellow(%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'})|level=%highlight(%-5level)|thread=%thread|env=%boldYellow(${activeProfile})|source=%boldBlue(%c{0})|correlationId=%X{correlationId:-none}|message=%boldGreen(%msg)|exception=%red(%ex{3}%n)
             </pattern>
         </encoder>
     </appender>
