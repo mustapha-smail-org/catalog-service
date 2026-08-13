@@ -18,7 +18,6 @@ jobs:
       sonar-organization: mustapha-smail-org
       jacoco-threshold: '70'
       automation-app-id: ${{ vars.AUTOMATION_APP_ID }}
-      service-cd-repository: catalog-service-cd
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
       automation-app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
