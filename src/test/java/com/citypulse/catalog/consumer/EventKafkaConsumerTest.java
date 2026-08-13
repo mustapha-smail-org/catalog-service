@@ -41,7 +41,7 @@ class EventKafkaConsumerTest {
     private static EventAvro getEventAvro() {
         EventPricingAvro eventPricingAvro = EventPricingAvro.newBuilder().setPriceDetail("").setPriceType("").setAccessType("").setBookingUrl("").setBookingLinkText("").build();
         EventAccessibilityAvro accessibilityAvro = EventAccessibilityAvro.newBuilder().setMentalAccessibility("").setSignLanguage("").setBlindAccessible(false).setDeafAccessible(false).setWheelchairAccessible(false).build();
-        EventLocationAvro locationAvro = EventLocationAvro.newBuilder().setName("").setStreet("").setZipcode("").setCity("").setLatitude(0.0).setLongitude(0.0).build();
+        EventLocationAvro locationAvro = EventLocationAvro.newBuilder().setName("name").setStreet("").setZipcode("").setCity("").setLatitude(0.0).setLongitude(0.0).build();
         return EventAvro.newBuilder().setId("event-123").setTitle("Paris concert").setStartDate(Instant.parse("2026-08-10T18:00:00Z")).setPricing(eventPricingAvro).setLocation(locationAvro).setAccessibility(accessibilityAvro).build();
     }
 

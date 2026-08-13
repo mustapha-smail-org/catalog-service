@@ -81,7 +81,7 @@ public class EventEntity {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
-    @OrderColumn(name = "position")
+    @OrderBy("position ASC")
     private List<EventOccurrenceEntity> occurrences =
             new ArrayList<>();
 
