@@ -1,0 +1,24 @@
+name: Main
+on:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-main.yml@main
+    with:
+      service-name: catalog-service
+      java-version: '21'
+      sonar-project-key: mustapha-smail-org_catalog-service
+      sonar-project-name: 'CityPulse Catalog Service'
+      sonar-organization: mustapha-smail-org
+      jacoco-threshold: '70'
+      automation-app-id: ${{ vars.AUTOMATION_APP_ID }}
+      service-cd-repository: catalog-service-cd
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+      automation-app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
