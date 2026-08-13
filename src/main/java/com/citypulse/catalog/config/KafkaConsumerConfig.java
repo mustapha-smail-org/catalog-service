@@ -9,6 +9,8 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
+import org.hibernate.TransactionException;
+import org.springframework.transaction.TransactionTimedOutException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.scram.ScramLoginModule;
@@ -57,7 +59,7 @@ public class KafkaConsumerConfig {
 
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
-        config.put(KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS, properties.schemaRegistry().autoRegisterSchemas());
+        config.put(KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS, true);
         config.put(ProducerConfig.ACKS_CONFIG, "all");
 
         return new DefaultKafkaProducerFactory<>(config);
@@ -69,23 +71,33 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public DefaultErrorHandler eventKafkaErrorHandler(KafkaTemplate<Object, Object> kafkaTemplate) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate, (record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition()));
+    public DefaultErrorHandler eventKafkaErrorHandler(KafkaTemplate<Object, Object> kafkaTemplate, KafkaProperties properties) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (record, exception) -> new TopicPartition(properties.topic().eventsDlt(), record.partition()));
 
-        // Two retries after the original delivery:
-        // attempt 1 → wait → attempt 2 → wait → attempt 3 → DLT
-        FixedBackOff backOff = new FixedBackOff(2_000L, 2L);
+        long backoffMs = properties.retry().backoffMs();
+        long maxAttempts = properties.retry().maxAttempts();
+        long fixedBackOffRetries = Math.max(0, maxAttempts - 1);
+
+        FixedBackOff backOff = new FixedBackOff(backoffMs, fixedBackOffRetries);
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
 
-        errorHandler.addNotRetryableExceptions(InvalidKafkaEventException.class, EventIdentityConflictException.class, DataIntegrityViolationException.class);
+        // Treat some exceptions as non-retryable to avoid useless retries that stress the DB
+        errorHandler.addNotRetryableExceptions(
+                InvalidKafkaEventException.class,
+                EventIdentityConflictException.class,
+                DataIntegrityViolationException.class,
+                TransactionException.class,
+                TransactionTimedOutException.class
+        );
 
         errorHandler.setCommitRecovered(true);
 
-        errorHandler.setRetryListeners((record, exception, deliveryAttempt) -> log.warn("""
-                Kafka retry topic={}, partition={}, \
-                offset={}, attempt={}
-                """, record.topic(), record.partition(), record.offset(), deliveryAttempt, exception));
+        errorHandler.setRetryListeners(
+                (record, exception, deliveryAttempt) ->
+                        log.warn("Kafka retry topic={}, partition={}, offset={}, attempt={}", record.topic(), record.partition(), record.offset(), deliveryAttempt, exception)
+        );
 
         return errorHandler;
     }

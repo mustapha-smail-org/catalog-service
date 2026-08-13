@@ -37,24 +37,14 @@ public class EventKafkaConsumer {
 
             acknowledgment.acknowledge();
 
-            log.info("""
-                    Event processed id={}, status={}, \
-                    partition={}, offset={}
-                    """, result.eventId(), result.status(), record.partition(), record.offset());
+            log.info("Event processed id={}, status={}, partition={}, offset={}", result.eventId(), result.status(), record.partition(), record.offset());
         } catch (InvalidKafkaEventException | EventIdentityConflictException |
                  DataIntegrityViolationException exception) {
-            log.warn("""
-                    Non-retryable Kafka event failure id={}, \
-                    partition={}, offset={}
-                    """, eventId, record.partition(), record.offset(), exception);
+            log.warn("Non-retryable Kafka event failure id={}, partition={}, offset={}", eventId, record.partition(), record.offset(), exception);
 
             throw exception;
         } catch (Exception exception) {
-            log.error("""
-                    Retryable Kafka event failure id={}, \
-                    partition={}, offset={}
-                    """, eventId, record.partition(), record.offset(), exception);
-
+            log.error("Retryable Kafka event failure id={}, partition={}, offset={}", eventId, record.partition(), record.offset(), exception);
             throw new KafkaEventProcessingException(eventId, exception);
         }
     }
@@ -74,6 +64,10 @@ public class EventKafkaConsumer {
 
         if (payload.getStartDate() == null) {
             throw new InvalidKafkaEventException(eventId, "startDate is required");
+        }
+
+        if (payload.getLocation() == null || payload.getLocation().getName() == null || payload.getLocation().getName().isBlank()) {
+            throw new InvalidKafkaEventException(eventId, "location is required");
         }
     }
 }

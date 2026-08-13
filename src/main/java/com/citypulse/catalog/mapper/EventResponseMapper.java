@@ -1,6 +1,8 @@
 package com.citypulse.catalog.mapper;
 
-import com.citypulse.catalog.dto.response.*;
+import com.citypulse.catalog.dto.response.EventDetailResponse;
+import com.citypulse.catalog.dto.response.EventMapMarkerResponse;
+import com.citypulse.catalog.dto.response.EventSummaryResponse;
 import com.citypulse.catalog.entity.EventEntity;
 import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import org.springframework.stereotype.Component;
@@ -123,8 +125,15 @@ public class EventResponseMapper {
     }
 
     private Integer arrondissement(EventEntity event) {
-        String zipcode = event.getLocation().getZipcode();
+        if (event == null) {
+            return null;
+        }
+        var location = event.getLocation();
+        if (location == null) {
+            return null;
+        }
 
+        String zipcode = location.getZipcode();
         if (zipcode == null || !zipcode.matches("750(?:0[1-9]|1[0-9]|20)")) {
             return null;
         }
