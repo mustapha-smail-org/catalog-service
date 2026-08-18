@@ -27,3 +27,9 @@ app:
       username: test-schema-user
       password: test-schema-password
       auto-register-schemas: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
