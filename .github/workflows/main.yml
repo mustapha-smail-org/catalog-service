@@ -17,7 +17,5 @@ jobs:
       sonar-project-name: 'CityPulse Catalog Service'
       sonar-organization: mustapha-smail-org
       jacoco-threshold: '70'
-      automation-app-id: ${{ vars.AUTOMATION_APP_ID }}
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
-      automation-app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
