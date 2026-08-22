@@ -23,7 +23,7 @@ public final class EventSlugGenerator {
 
         if (base.length() > MAX_BASE_LENGTH) {
             base = base.substring(0, MAX_BASE_LENGTH);
-            base = base.replaceAll("-+$", "");
+            base = removeTrailingSeparator(base);
         }
 
         return base + "-" + suffix(stableId);
@@ -39,11 +39,39 @@ public final class EventSlugGenerator {
                 .replace("æ", "ae")
                 .replace("ß", "ss");
         String withoutAccents = Normalizer.normalize(frenchAscii, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "");
+                .codePoints()
+                .filter(codePoint -> Character.getType(codePoint) != Character.NON_SPACING_MARK)
+                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                .toString();
 
-        return withoutAccents
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("(^-+|-+$)", "");
+        StringBuilder slug = new StringBuilder(withoutAccents.length());
+        boolean separatorPending = false;
+        for (int index = 0; index < withoutAccents.length(); index++) {
+            char current = withoutAccents.charAt(index);
+            if (isAsciiLetterOrDigit(current)) {
+                if (separatorPending && !slug.isEmpty()) {
+                    slug.append('-');
+                }
+                slug.append(current);
+                separatorPending = false;
+            } else {
+                separatorPending = true;
+            }
+        }
+
+        return slug.toString();
+    }
+
+    private static boolean isAsciiLetterOrDigit(char value) {
+        return (value >= 'a' && value <= 'z') || (value >= '0' && value <= '9');
+    }
+
+    private static String removeTrailingSeparator(String value) {
+        int end = value.length();
+        while (end > 0 && value.charAt(end - 1) == '-') {
+            end--;
+        }
+        return value.substring(0, end);
     }
 
     private static String suffix(String stableId) {

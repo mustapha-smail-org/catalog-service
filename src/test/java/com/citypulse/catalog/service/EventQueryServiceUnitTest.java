@@ -28,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,8 +59,8 @@ class EventQueryServiceUnitTest {
         EventEntity first = event("event-1", "2026-08-20T18:00:00Z");
         EventEntity second = event("event-2", "2026-08-21T18:00:00Z");
         EventEntity lookahead = event("event-3", "2026-08-22T18:00:00Z");
-        EventSummaryResponse firstResponse = org.mockito.Mockito.mock(EventSummaryResponse.class);
-        EventSummaryResponse secondResponse = org.mockito.Mockito.mock(EventSummaryResponse.class);
+        EventSummaryResponse firstResponse = mock(EventSummaryResponse.class);
+        EventSummaryResponse secondResponse = mock(EventSummaryResponse.class);
 
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(first, second, lookahead)));
@@ -86,7 +87,7 @@ class EventQueryServiceUnitTest {
                 null, "  ", PricingFilter.FREE, null, "  ", null, 10, null
         );
         EventEntity event = event("event-1", "2026-08-20T18:00:00Z");
-        EventMapMarkerResponse marker = org.mockito.Mockito.mock(EventMapMarkerResponse.class);
+        EventMapMarkerResponse marker = mock(EventMapMarkerResponse.class);
 
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(event)));
@@ -102,7 +103,7 @@ class EventQueryServiceUnitTest {
     @Test
     void shouldReturnMappedDetail() {
         EventEntity event = event("event-42", "2026-08-20T18:00:00Z");
-        EventDetailResponse detail = org.mockito.Mockito.mock(EventDetailResponse.class);
+        EventDetailResponse detail = mock(EventDetailResponse.class);
         when(repository.findById("event-42")).thenReturn(Optional.of(event));
         when(mapper.toDetail(event)).thenReturn(detail);
 
@@ -112,7 +113,7 @@ class EventQueryServiceUnitTest {
     @Test
     void shouldReturnMappedDetailBySlug() {
         EventEntity event = event("event-42", "2026-08-20T18:00:00Z");
-        EventDetailResponse detail = org.mockito.Mockito.mock(EventDetailResponse.class);
+        EventDetailResponse detail = mock(EventDetailResponse.class);
         when(repository.findBySlug(event.getSlug())).thenReturn(Optional.of(event));
         when(mapper.toDetail(event)).thenReturn(detail);
 

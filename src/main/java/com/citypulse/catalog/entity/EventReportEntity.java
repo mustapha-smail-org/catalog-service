@@ -1,13 +1,11 @@
 package com.citypulse.catalog.entity;
 
+import com.citypulse.catalog.dto.request.EventReportType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.Instant;
-import com.citypulse.catalog.dto.request.EventReportType;
 
 @Getter
 @Setter
@@ -20,7 +18,7 @@ import com.citypulse.catalog.dto.request.EventReportType;
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class EventReportEntity {
+public class EventReportEntity extends SubmissionEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,48 +37,15 @@ public class EventReportEntity {
     @Column(name = "type", nullable = false, length = 50)
     private EventReportType type;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    private SubmissionStatus status = SubmissionStatus.OPEN;
-
-    @Column(name = "processed_at")
-    private Instant processedAt;
-
-    @Column(name = "internal_note", columnDefinition = "TEXT")
-    private String internalNote;
-
     @Column(name = "message", columnDefinition = "TEXT")
     private String message;
 
-    @Column(name = "email", length = 320)
-    private String email;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
-
     public EventReportEntity(String eventId, String eventSlug, String eventTitle, EventReportType type, String message, String email) {
+        super(email);
         this.eventId = requireText(eventId, "eventId");
         this.eventSlug = requireText(eventSlug, "eventSlug");
         this.eventTitle = requireText(eventTitle, "eventTitle");
         this.type = java.util.Objects.requireNonNull(type, "type must not be null");
         this.message = blankToNull(message);
-        this.email = blankToNull(email);
-    }
-
-    @PrePersist
-    void prePersist() {
-        createdAt = Instant.now();
-    }
-
-    private String requireText(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
-
-        return value.trim();
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
     }
 }

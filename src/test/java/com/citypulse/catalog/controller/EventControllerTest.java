@@ -1,5 +1,7 @@
 package com.citypulse.catalog.controller;
 
+import com.citypulse.catalog.dto.request.EventReportRequest;
+import com.citypulse.catalog.dto.request.EventReportType;
 import com.citypulse.catalog.dto.request.EventSearchRequest;
 import com.citypulse.catalog.dto.request.FeedbackSubmissionRequest;
 import com.citypulse.catalog.dto.request.FeedbackType;
@@ -62,13 +64,24 @@ class EventControllerTest {
 
     @Test
     void shouldDelegateFeedbackSubmission() {
-        FeedbackSubmissionRequest request = new FeedbackSubmissionRequest(
+        FeedbackSubmissionRequest feedbackRequest = new FeedbackSubmissionRequest(
                 FeedbackType.GENERAL, "Great app", "reader@example.com"
         );
         SubmissionResponse expected = new SubmissionResponse("1", "RECEIVED");
-        when(feedbackService.submitFeedback(request)).thenReturn(expected);
+        when(feedbackService.submitFeedback(feedbackRequest)).thenReturn(expected);
 
-        assertThat(controller.submitFeedback(request)).isSameAs(expected);
+        assertThat(controller.submitFeedback(feedbackRequest)).isSameAs(expected);
+    }
+
+    @Test
+    void shouldDelegateEventReport() {
+        EventReportRequest reportRequest = new EventReportRequest(
+                EventReportType.BROKEN_LINK, "The official URL is unavailable", "reader@example.com"
+        );
+        SubmissionResponse expected = new SubmissionResponse("2", "RECEIVED");
+        when(feedbackService.reportEvent("event-slug", reportRequest)).thenReturn(expected);
+
+        assertThat(controller.reportEvent("event-slug", reportRequest)).isSameAs(expected);
     }
 
     @Test
