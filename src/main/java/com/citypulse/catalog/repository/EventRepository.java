@@ -19,6 +19,8 @@ public interface EventRepository extends
 
     Optional<EventEntity> findBySourceEventId(Long sourceEventId);
 
+    Optional<EventEntity> findBySlug(String slug);
+
     boolean existsBySourceEventId(Long sourceEventId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

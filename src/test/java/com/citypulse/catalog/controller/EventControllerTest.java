@@ -1,11 +1,15 @@
 package com.citypulse.catalog.controller;
 
 import com.citypulse.catalog.dto.request.EventSearchRequest;
+import com.citypulse.catalog.dto.request.FeedbackSubmissionRequest;
+import com.citypulse.catalog.dto.request.FeedbackType;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
 import com.citypulse.catalog.dto.response.EventMapMarkerResponse;
 import com.citypulse.catalog.dto.response.EventSummaryResponse;
+import com.citypulse.catalog.dto.response.SubmissionResponse;
 import com.citypulse.catalog.service.EventQueryService;
+import com.citypulse.catalog.service.FeedbackService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -18,7 +22,8 @@ import static org.mockito.Mockito.when;
 class EventControllerTest {
 
     private final EventQueryService service = mock(EventQueryService.class);
-    private final EventController controller = new EventController(service);
+    private final FeedbackService feedbackService = mock(FeedbackService.class);
+    private final EventController controller = new EventController(service, feedbackService);
     private final EventSearchRequest request = new EventSearchRequest(
             null, null, null, null, null, null, null, null
     );
@@ -45,6 +50,25 @@ class EventControllerTest {
         when(service.findById("event-42")).thenReturn(expected);
 
         assertThat(controller.findEvent("event-42")).isSameAs(expected);
+    }
+
+    @Test
+    void shouldDelegateSlugLookup() {
+        EventDetailResponse expected = mock(EventDetailResponse.class);
+        when(service.findBySlug("open-air-cinema-a1b2c3d4")).thenReturn(expected);
+
+        assertThat(controller.findEventBySlug("open-air-cinema-a1b2c3d4")).isSameAs(expected);
+    }
+
+    @Test
+    void shouldDelegateFeedbackSubmission() {
+        FeedbackSubmissionRequest request = new FeedbackSubmissionRequest(
+                FeedbackType.GENERAL, "Great app", "reader@example.com"
+        );
+        SubmissionResponse expected = new SubmissionResponse("1", "RECEIVED");
+        when(feedbackService.submitFeedback(request)).thenReturn(expected);
+
+        assertThat(controller.submitFeedback(request)).isSameAs(expected);
     }
 
     @Test

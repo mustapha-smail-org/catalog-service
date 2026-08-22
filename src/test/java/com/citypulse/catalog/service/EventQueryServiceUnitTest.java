@@ -110,6 +110,16 @@ class EventQueryServiceUnitTest {
     }
 
     @Test
+    void shouldReturnMappedDetailBySlug() {
+        EventEntity event = event("event-42", "2026-08-20T18:00:00Z");
+        EventDetailResponse detail = org.mockito.Mockito.mock(EventDetailResponse.class);
+        when(repository.findBySlug(event.getSlug())).thenReturn(Optional.of(event));
+        when(mapper.toDetail(event)).thenReturn(detail);
+
+        assertThat(service.findBySlug(event.getSlug())).isSameAs(detail);
+    }
+
+    @Test
     void shouldRejectUnknownEventId() {
         when(repository.findById("missing")).thenReturn(Optional.empty());
 

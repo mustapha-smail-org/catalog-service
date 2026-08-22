@@ -29,7 +29,14 @@ class EventAvroMapperTest {
         assertThat(result.getSourceEventId()).isEqualTo(42L);
         assertThat(result.getTitle()).isEqualTo("Open-air cinema");
         assertThat(result.getDescription()).isEqualTo("A summer screening");
+        assertThat(result.getLeadText()).isEqualTo("A concise introduction");
+        assertThat(result.getDateDescription()).isEqualTo("Every evening");
         assertThat(result.getUrl()).isEqualTo("https://citypulse.test/events/42");
+        assertThat(result.getSlug()).startsWith("open-air-cinema-");
+        assertThat(result.getImageUrl()).isEqualTo("https://images.test/open-air.jpg");
+        assertThat(result.getImageAlt()).isEqualTo("People watching a movie outside");
+        assertThat(result.getImageCredit()).isEqualTo("City of Paris");
+        assertThat(result.getTransport()).isEqualTo("Metro 1");
         assertThat(result.getStartDate()).isEqualTo(Instant.parse("2026-08-20T18:00:00Z"));
         assertThat(result.getEndDate()).isEqualTo(Instant.parse("2026-08-20T21:00:00Z"));
         assertThat(result.getSourceUpdatedAt()).isEqualTo(Instant.parse("2026-08-13T09:00:00Z"));
@@ -83,8 +90,14 @@ class EventAvroMapperTest {
                 .setSourceEventId(42L)
                 .setTitle("Open-air cinema")
                 .setDescription("A summer screening")
+                .setLeadText("A concise introduction")
+                .setDateDescription("Every evening")
                 .setCategories(List.of("Cinema", "Outdoor"))
                 .setUrl("https://citypulse.test/events/42")
+                .setImageUrl("https://images.test/open-air.jpg")
+                .setImageAlt("People watching a movie outside")
+                .setImageCredit("City of Paris")
+                .setTransport("Metro 1")
                 .setStartDate(Instant.parse("2026-08-20T18:00:00Z"))
                 .setEndDate(Instant.parse("2026-08-20T21:00:00Z"))
                 .setLocation(EventLocationAvro.newBuilder()

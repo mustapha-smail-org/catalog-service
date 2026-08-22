@@ -1,5 +1,6 @@
 package com.citypulse.catalog.entity;
 
+import com.citypulse.catalog.utils.EventSlugGenerator;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -25,7 +26,8 @@ import java.util.Set;
                 @Index(
                         name = "idx_events_source_updated_at",
                         columnList = "source_updated_at"
-                )
+                ),
+                @Index(name = "idx_events_slug", columnList = "slug")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -38,14 +40,35 @@ public class EventEntity {
     @Column(name = "source_event_id", unique = true)
     private Long sourceEventId;
 
+    @Column(name = "slug", nullable = false, unique = true, length = 220)
+    private String slug;
+
     @Column(name = "title", nullable = false, length = 500)
     private String title;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "lead_text", columnDefinition = "TEXT")
+    private String leadText;
+
+    @Column(name = "date_description", columnDefinition = "TEXT")
+    private String dateDescription;
+
     @Column(name = "url", length = 2_048)
     private String url;
+
+    @Column(name = "image_url", length = 2_048)
+    private String imageUrl;
+
+    @Column(name = "image_alt", length = 1_000)
+    private String imageAlt;
+
+    @Column(name = "image_credit", length = 1_000)
+    private String imageCredit;
+
+    @Column(name = "transport", columnDefinition = "TEXT")
+    private String transport;
 
     @Column(name = "start_date", nullable = false)
     private Instant startDate;
@@ -101,6 +124,7 @@ public class EventEntity {
     public EventEntity(String id, String title, Instant startDate) {
         this.id = requireText(id, "id");
         this.title = requireText(title, "title");
+        this.slug = EventSlugGenerator.generate(this.title, this.id);
         this.startDate = java.util.Objects.requireNonNull(
                 startDate,
                 "startDate must not be null"

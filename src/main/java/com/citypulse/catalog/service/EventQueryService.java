@@ -48,6 +48,11 @@ public class EventQueryService {
         return eventRepository.findById(eventId).map(mapper::toDetail).orElseThrow(() -> new EventNotFoundException(eventId));
     }
 
+    public EventDetailResponse findBySlug(String slug) {
+        log.info("Searching for event slug: {}", slug);
+        return eventRepository.findBySlug(slug).map(mapper::toDetail).orElseThrow(() -> new EventNotFoundException(slug));
+    }
+
     public List<String> findCategories() {
         log.info("Searching for categories");
         return eventRepository.findDistinctCategories();

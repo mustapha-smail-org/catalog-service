@@ -12,9 +12,19 @@ public class EventEntityUpdater {
     public void update(EventEntity target, EventEntity source) {
         target.setTitle(source.getTitle());
         target.setDescription(source.getDescription());
+        target.setLeadText(source.getLeadText());
+        target.setDateDescription(source.getDateDescription());
         target.setUrl(source.getUrl());
+        target.setImageUrl(source.getImageUrl());
+        target.setImageAlt(source.getImageAlt());
+        target.setImageCredit(source.getImageCredit());
+        target.setTransport(source.getTransport());
         target.setStartDate(source.getStartDate());
         target.setEndDate(source.getEndDate());
+
+        if (target.getSlug() == null || target.getSlug().isBlank()) {
+            target.setSlug(source.getSlug());
+        }
 
         target.setLocation(source.getLocation());
         target.setAccessibility(source.getAccessibility());

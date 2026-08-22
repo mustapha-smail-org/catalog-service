@@ -9,6 +9,7 @@ import com.citypulse.catalog.entity.EventPricingEmbeddable;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.Set;
 
@@ -16,7 +17,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EventResponseMapperTest {
 
-    private final EventResponseMapper mapper = new EventResponseMapper();
+    private final EventResponseMapper mapper = new EventResponseMapper(
+            Clock.fixed(Instant.parse("2026-08-20T10:00:00Z"), ZoneOffset.UTC)
+    );
 
     @Test
     void shouldMapSummaryAndTruncateLongDescription() {
@@ -26,12 +29,17 @@ class EventResponseMapperTest {
         var result = mapper.toSummary(event);
 
         assertThat(result.id()).isEqualTo("event-42");
+        assertThat(result.slug()).startsWith("open-air-cinema-");
         assertThat(result.summary()).hasSize(240).endsWith("...");
         assertThat(result.categories()).containsExactlyInAnyOrder("Cinema", "Outdoor");
         assertThat(result.pricing()).isEqualTo("FREE");
         assertThat(result.arrondissement()).isEqualTo(1);
+        assertThat(result.imageUrl()).isEqualTo("https://images.test/open-air.jpg");
+        assertThat(result.imageAlt()).isEqualTo("People watching a movie outside");
         assertThat(result.startAt().getOffset()).isEqualTo(ZoneOffset.ofHours(2));
         assertThat(result.endAt()).isNull();
+        assertThat(result.displayStartAt()).isEqualTo(result.startAt());
+        assertThat(result.ongoing()).isFalse();
     }
 
     @Test
@@ -39,6 +47,7 @@ class EventResponseMapperTest {
         var result = mapper.toMapMarker(event());
 
         assertThat(result.id()).isEqualTo("event-42");
+        assertThat(result.slug()).startsWith("open-air-cinema-");
         assertThat(result.category()).isEqualTo("Cinema");
         assertThat(result.latitude()).isEqualTo(48.8566);
         assertThat(result.longitude()).isEqualTo(2.3522);
@@ -58,6 +67,8 @@ class EventResponseMapperTest {
 
         EventDetailResponse result = mapper.toDetail(event);
 
+        assertThat(result.slug()).startsWith("open-air-cinema-");
+        assertThat(result.imageUrl()).isEqualTo("https://images.test/open-air.jpg");
         assertThat(result.location().name()).isEqualTo("Cour Carrée");
         assertThat(result.location().arrondissement()).isEqualTo(1);
         assertThat(result.accessibility().wheelchairAccessible()).isTrue();
@@ -100,12 +111,40 @@ class EventResponseMapperTest {
         assertThat(mapper.toSummary(event).summary()).isNull();
     }
 
+    @Test
+    void shouldStripMarkupAndDecodeEntitiesInSummary() {
+        EventEntity event = event();
+        event.setLeadText("<p>Un <strong>concert</strong> &amp; une expo.</p>");
+
+        assertThat(mapper.toSummary(event).summary())
+                .isEqualTo("Un concert & une expo.");
+    }
+
+    @Test
+    void shouldExposeOngoingScheduleWithoutHistoricalDisplayStart() {
+        EventEntity event = event();
+        event.setStartDate(Instant.parse("2023-10-23T00:00:00Z"));
+        event.setEndDate(Instant.parse("2026-08-31T00:00:00Z"));
+        event.setDateDescription("<p>Ouvert tous les jours</p>");
+
+        var result = mapper.toSummary(event);
+
+        assertThat(result.ongoing()).isTrue();
+        assertThat(result.displayStartAt()).isNull();
+        assertThat(result.displayEndAt()).isEqualTo(
+                Instant.parse("2026-08-31T00:00:00Z").atOffset(ZoneOffset.ofHours(2))
+        );
+        assertThat(result.scheduleLabel()).isEqualTo("Ouvert tous les jours");
+    }
+
     private EventEntity event() {
         EventEntity event = new EventEntity(
                 "event-42", "Open-air cinema", Instant.parse("2026-08-20T18:00:00Z")
         );
         event.setDescription("A summer screening");
         event.setUrl("https://citypulse.test/events/42");
+        event.setImageUrl("https://images.test/open-air.jpg");
+        event.setImageAlt("People watching a movie outside");
         event.setLocation(new EventLocationEmbeddable(
                 "Cour Carrée", "Rue de Rivoli", "75001", "Paris", 48.8566, 2.3522
         ));
