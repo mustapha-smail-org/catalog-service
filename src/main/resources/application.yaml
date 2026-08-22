@@ -33,6 +33,10 @@ spring:
         jdbc:
           time_zone: UTC
         format_sql: false
+        # Batch-load LAZY collections (categories, occurrences) for all rows of a
+        # page in a few IN (...) queries instead of one round-trip per row (N+1).
+        # Matters most for /events/map (limit 100) against the remote DB.
+        default_batch_fetch_size: 100
   flyway:
     enabled: true
     locations: classpath:db/migration

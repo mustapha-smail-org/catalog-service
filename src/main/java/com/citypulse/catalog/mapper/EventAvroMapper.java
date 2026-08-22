@@ -1,6 +1,7 @@
 package com.citypulse.catalog.mapper;
 
 import com.citypulse.catalog.entity.*;
+import com.citypulse.catalog.utils.EventSlugGenerator;
 import com.citypulse.events.avro.EventAccessibilityAvro;
 import com.citypulse.events.avro.EventAvro;
 import com.citypulse.events.avro.EventLocationAvro;
@@ -19,8 +20,20 @@ public class EventAvroMapper {
         EventEntity event = new EventEntity(requireText(source.getId(), "id"), requireText(source.getTitle(), "title"), Objects.requireNonNull(source.getStartDate(), "startDate must not be null"));
 
         event.setSourceEventId(source.getSourceEventId());
+        event.setSlug(EventSlugGenerator.generate(
+                source.getTitle(),
+                source.getSourceEventId() == null
+                        ? source.getId()
+                        : source.getSourceEventId().toString()
+        ));
         event.setDescription(source.getDescription());
+        event.setLeadText(source.getLeadText());
+        event.setDateDescription(source.getDateDescription());
         event.setUrl(source.getUrl());
+        event.setImageUrl(source.getImageUrl());
+        event.setImageAlt(source.getImageAlt());
+        event.setImageCredit(source.getImageCredit());
+        event.setTransport(source.getTransport());
         event.setEndDate(source.getEndDate());
         event.setSourceUpdatedAt(source.getSourceUpdatedAt());
 

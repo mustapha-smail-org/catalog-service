@@ -20,6 +20,7 @@ class EventEntityUpdaterTest {
     @Test
     void shouldCopyMutableFieldsAndRebuildChildCollections() {
         EventEntity target = new EventEntity("event-1", "Old", Instant.EPOCH);
+        String originalSlug = target.getSlug();
         target.replaceCategories(Set.of("Old category"));
         target.addOccurrence(new EventOccurrenceEntity(Instant.EPOCH, null));
 
@@ -27,7 +28,13 @@ class EventEntityUpdaterTest {
                 "event-1", "New title", Instant.parse("2026-08-20T18:00:00Z")
         );
         source.setDescription("New description");
+        source.setLeadText("New lead");
+        source.setDateDescription("Every Friday");
         source.setUrl("https://citypulse.test/new");
+        source.setImageUrl("https://images.test/new.jpg");
+        source.setImageAlt("New image alt");
+        source.setImageCredit("Photographer");
+        source.setTransport("Metro 3");
         source.setEndDate(Instant.parse("2026-08-20T20:00:00Z"));
         source.setSourceUpdatedAt(Instant.parse("2026-08-13T10:00:00Z"));
         source.setLocation(new EventLocationEmbeddable("Venue", "Street", "75003", "Paris", 1.0, 2.0));
@@ -43,7 +50,14 @@ class EventEntityUpdaterTest {
 
         assertThat(target.getTitle()).isEqualTo("New title");
         assertThat(target.getDescription()).isEqualTo("New description");
+        assertThat(target.getLeadText()).isEqualTo("New lead");
+        assertThat(target.getDateDescription()).isEqualTo("Every Friday");
         assertThat(target.getUrl()).isEqualTo("https://citypulse.test/new");
+        assertThat(target.getSlug()).isEqualTo(originalSlug);
+        assertThat(target.getImageUrl()).isEqualTo("https://images.test/new.jpg");
+        assertThat(target.getImageAlt()).isEqualTo("New image alt");
+        assertThat(target.getImageCredit()).isEqualTo("Photographer");
+        assertThat(target.getTransport()).isEqualTo("Metro 3");
         assertThat(target.getStartDate()).isEqualTo(source.getStartDate());
         assertThat(target.getEndDate()).isEqualTo(source.getEndDate());
         assertThat(target.getLocation()).isSameAs(source.getLocation());

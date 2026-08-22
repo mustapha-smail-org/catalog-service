@@ -25,6 +25,26 @@
       ]
     },
     {
+      "default": null,
+      "name": "leadText",
+      "type": ["null", "string"]
+    },
+    {
+      "default": null,
+      "name": "dateDescription",
+      "type": ["null", "string"]
+    },
+    {
+      "default": null,
+      "name": "imageCredit",
+      "type": ["null", "string"]
+    },
+    {
+      "default": null,
+      "name": "transport",
+      "type": ["null", "string"]
+    },
+    {
       "default": [],
       "name": "categories",
       "type": {
@@ -244,6 +264,22 @@
           "logicalType": "timestamp-millis",
           "type": "long"
         }
+      ]
+    },
+    {
+      "default": null,
+      "name": "imageUrl",
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    {
+      "default": null,
+      "name": "imageAlt",
+      "type": [
+        "null",
+        "string"
       ]
     }
   ],

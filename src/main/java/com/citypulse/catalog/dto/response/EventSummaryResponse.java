@@ -5,6 +5,7 @@ import java.util.Set;
 
 public record EventSummaryResponse(
         String id,
+        String slug,
         String title,
         String summary,
         Set<String> categories,
@@ -13,6 +14,14 @@ public record EventSummaryResponse(
         String venue,
         OffsetDateTime startAt,
         OffsetDateTime endAt,
-        String officialUrl
+        OffsetDateTime displayStartAt,
+        OffsetDateTime displayEndAt,
+        boolean ongoing,
+        String scheduleLabel,
+        String officialUrl,
+        String imageUrl,
+        String imageAlt,
+        String imageCredit,
+        OffsetDateTime sourceUpdatedAt
 ) {
 }

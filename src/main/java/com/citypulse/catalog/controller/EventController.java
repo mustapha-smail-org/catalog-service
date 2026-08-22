@@ -1,11 +1,15 @@
 package com.citypulse.catalog.controller;
 
+import com.citypulse.catalog.dto.request.EventReportRequest;
 import com.citypulse.catalog.dto.request.EventSearchRequest;
+import com.citypulse.catalog.dto.request.FeedbackSubmissionRequest;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
 import com.citypulse.catalog.dto.response.EventMapMarkerResponse;
 import com.citypulse.catalog.dto.response.EventSummaryResponse;
+import com.citypulse.catalog.dto.response.SubmissionResponse;
 import com.citypulse.catalog.service.EventQueryService;
+import com.citypulse.catalog.service.FeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,6 +32,7 @@ import java.util.List;
 public class EventController {
 
     private final EventQueryService eventQueryService;
+    private final FeedbackService feedbackService;
 
     @GetMapping("/events")
     @Operation(summary = "Find events", description = "Retrieve a list of events based on search criteria")
@@ -65,6 +70,44 @@ public class EventController {
             @Parameter(description = "The ID of the event to retrieve") @PathVariable String eventId
     ) {
         return eventQueryService.findById(eventId);
+    }
+
+    @GetMapping("/events/slug/{slug}")
+    @Operation(summary = "Find event by slug", description = "Retrieve details of a specific event by its SEO slug")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved event", content = {@Content(mediaType = "application/json", schema = @Schema(implementation = EventDetailResponse.class))}),
+            @ApiResponse(responseCode = "404", description = "Event not found", content = @Content)
+    })
+    public EventDetailResponse findEventBySlug(
+            @Parameter(description = "The SEO slug of the event to retrieve") @PathVariable String slug
+    ) {
+        return eventQueryService.findBySlug(slug);
+    }
+
+    @PostMapping("/feedback")
+    @Operation(summary = "Submit feedback", description = "Persist user feedback for Paname Spot")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Feedback received", content = {@Content(mediaType = "application/json", schema = @Schema(implementation = SubmissionResponse.class))}),
+            @ApiResponse(responseCode = "400", description = "Invalid request body", content = @Content)
+    })
+    public SubmissionResponse submitFeedback(
+            @Valid @RequestBody FeedbackSubmissionRequest request
+    ) {
+        return feedbackService.submitFeedback(request);
+    }
+
+    @PostMapping("/events/{slug}/reports")
+    @Operation(summary = "Report event issue", description = "Persist a user report for an event")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Report received", content = {@Content(mediaType = "application/json", schema = @Schema(implementation = SubmissionResponse.class))}),
+            @ApiResponse(responseCode = "400", description = "Invalid request body", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Event not found", content = @Content)
+    })
+    public SubmissionResponse reportEvent(
+            @PathVariable String slug,
+            @Valid @RequestBody EventReportRequest request
+    ) {
+        return feedbackService.reportEvent(slug, request);
     }
 
     @GetMapping("/categories")
