@@ -4,12 +4,13 @@ import com.citypulse.catalog.dto.request.PricingFilter;
 import com.citypulse.catalog.utils.DateRange;
 
 import java.time.Instant;
+import java.util.List;
 
 public record EventSearchCriteria(
         DateRange dateRange,
-        String category,
+        List<String> categories,
         PricingFilter pricing,
-        String arrondissement,
+        List<String> arrondissements,
         String query,
         CursorPosition cursor
 ) {
