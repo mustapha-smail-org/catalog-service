@@ -5,6 +5,7 @@ import com.citypulse.catalog.dto.request.EventSearchRequest;
 import com.citypulse.catalog.dto.request.FeedbackSubmissionRequest;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
+import com.citypulse.catalog.dto.response.EventFacetsResponse;
 import com.citypulse.catalog.dto.response.EventMapMarkerResponse;
 import com.citypulse.catalog.dto.response.EventSummaryResponse;
 import com.citypulse.catalog.dto.response.SubmissionResponse;
@@ -58,6 +59,19 @@ public class EventController {
             @Parameter(description = "Event search criteria") @Valid @ModelAttribute EventSearchRequest request
     ) {
         return eventQueryService.findMapEvents(request);
+    }
+
+    @GetMapping("/events/facets")
+    @Operation(summary = "Find event facets", description = "Retrieve drill-down facet counts (categories, arrondissements) for the current search criteria")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved facets", content = {@Content(mediaType = "application/json", schema = @Schema(implementation = EventFacetsResponse.class))}),
+            @ApiResponse(responseCode = "400", description = "Invalid request parameters", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
+    })
+    public EventFacetsResponse findEventFacets(
+            @Parameter(description = "Event search criteria") @Valid @ModelAttribute EventSearchRequest request
+    ) {
+        return eventQueryService.findFacets(request);
     }
 
     @GetMapping("/events/{eventId}")

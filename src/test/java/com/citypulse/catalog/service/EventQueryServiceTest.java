@@ -1,9 +1,12 @@
 package com.citypulse.catalog.service;
 
 import com.citypulse.catalog.dto.request.EventSearchRequest;
+import com.citypulse.catalog.dto.request.PricingFilter;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
+import com.citypulse.catalog.dto.response.EventFacetsResponse;
 import com.citypulse.catalog.dto.response.EventSummaryResponse;
+import com.citypulse.catalog.dto.response.FacetCountResponse;
 import com.citypulse.catalog.entity.EventAccessibilityEmbeddable;
 import com.citypulse.catalog.entity.EventEntity;
 import com.citypulse.catalog.entity.EventLocationEmbeddable;
@@ -15,6 +18,7 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,7 +30,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +77,11 @@ class EventQueryServiceTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
+    @BeforeEach
+    void cleanDatabase() {
+        eventRepository.deleteAll();
+    }
+
     @Test
     void shouldReturnSerializableEventSummariesWithCategories() throws Exception {
         EventEntity event = serializableEvent(
@@ -82,7 +93,7 @@ class EventQueryServiceTest {
         eventRepository.saveAndFlush(event);
 
         CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
-                new EventSearchRequest(null, null, null, null, null, null, 10, null)
+                new EventSearchRequest(null, null, null, null, null, null, null, null, null, 10, null)
         );
 
         String json = objectMapper.writeValueAsString(response);
@@ -107,6 +118,161 @@ class EventQueryServiceTest {
         String json = objectMapper.writeValueAsString(response);
 
         assertThat(json).contains("Cinema", "Outdoor");
+    }
+
+    @Test
+    void shouldMatchAnyOfMultipleCategories() {
+        eventRepository.saveAndFlush(filterableEvent(
+                "cat-concert", "Concert night", Instant.parse("2026-09-10T18:00:00Z"),
+                "75001", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "cat-expo", "Expo day", Instant.parse("2026-09-11T18:00:00Z"),
+                "75001", Set.of("Expositions")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "cat-theatre", "Theatre play", Instant.parse("2026-09-12T18:00:00Z"),
+                "75001", Set.of("Theatre")));
+
+        CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
+                new EventSearchRequest(
+                        null, null, List.of("Concerts", "Theatre"), null, null,
+                        null, null, null, null, 50, null)
+        );
+
+        assertThat(response.items()).extracting(EventSummaryResponse::title)
+                .containsExactlyInAnyOrder("Concert night", "Theatre play");
+    }
+
+    @Test
+    void shouldMatchAnyOfMultipleArrondissements() {
+        eventRepository.saveAndFlush(filterableEvent(
+                "arr-1", "First arr event", Instant.parse("2026-09-10T18:00:00Z"),
+                "75001", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "arr-15", "Fifteenth arr event", Instant.parse("2026-09-11T18:00:00Z"),
+                "75015", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "arr-outside", "Outside Paris event", Instant.parse("2026-09-12T18:00:00Z"),
+                "69000", Set.of("Concerts")));
+
+        CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
+                new EventSearchRequest(
+                        null, null, null, null, null,
+                        List.of("1", "OUTSIDE_PARIS"), null, null, null, 50, null)
+        );
+
+        assertThat(response.items()).extracting(EventSummaryResponse::title)
+                .containsExactlyInAnyOrder("First arr event", "Outside Paris event");
+    }
+
+    @Test
+    void shouldFilterBySpecificDate() {
+        eventRepository.saveAndFlush(filterableEvent(
+                "date-target", "Target day event", Instant.parse("2026-09-01T18:00:00Z"),
+                "75001", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "date-other", "Other day event", Instant.parse("2026-09-05T18:00:00Z"),
+                "75001", Set.of("Concerts")));
+
+        CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
+                new EventSearchRequest(
+                        null, LocalDate.of(2026, 9, 1), null, null, null,
+                        null, null, null, null, 50, null)
+        );
+
+        assertThat(response.items()).extracting(EventSummaryResponse::title)
+                .containsExactly("Target day event");
+    }
+
+    @Test
+    void shouldCountCategoriesWithDrillDownIgnoringSelectedCategoryButHonouringPricing() {
+        eventRepository.saveAndFlush(filterableEvent(
+                "fa-1", "Concert A", Instant.parse("2026-09-10T18:00:00Z"),
+                "75001", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "fa-2", "Concert B", Instant.parse("2026-09-11T18:00:00Z"),
+                "75002", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "fa-3", "Expo C", Instant.parse("2026-09-12T18:00:00Z"),
+                "75001", Set.of("Expositions")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "fa-4", "Paid concert D", Instant.parse("2026-09-13T18:00:00Z"),
+                "75001", Set.of("Concerts"), "payant"));
+
+        EventFacetsResponse facets = eventQueryService.findFacets(
+                new EventSearchRequest(
+                        null, null, List.of("Concerts"), null, PricingFilter.FREE,
+                        null, null, null, null, null, null)
+        );
+
+        assertThat(facets.categories()).containsExactly(
+                new FacetCountResponse("Concerts", 2L),
+                new FacetCountResponse("Expositions", 1L)
+        );
+        assertThat(facets.arrondissements()).containsExactly(
+                new FacetCountResponse("1", 1L),
+                new FacetCountResponse("2", 1L)
+        );
+    }
+
+    @Test
+    void shouldCountArrondissementBucketsInOrder() {
+        eventRepository.saveAndFlush(filterableEvent(
+                "ab-1", "First A", Instant.parse("2026-09-10T18:00:00Z"),
+                "75001", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "ab-2", "First B", Instant.parse("2026-09-11T18:00:00Z"),
+                "75001", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "ab-15", "Fifteenth", Instant.parse("2026-09-12T18:00:00Z"),
+                "75015", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "ab-outside", "Outside", Instant.parse("2026-09-13T18:00:00Z"),
+                "69000", Set.of("Concerts")));
+        eventRepository.saveAndFlush(filterableEvent(
+                "ab-unknown", "Unknown", Instant.parse("2026-09-14T18:00:00Z"),
+                null, Set.of("Concerts")));
+
+        EventFacetsResponse facets = eventQueryService.findFacets(
+                new EventSearchRequest(
+                        null, null, null, null, null, null, null, null, null, null, null)
+        );
+
+        assertThat(facets.arrondissements()).containsExactly(
+                new FacetCountResponse("1", 2L),
+                new FacetCountResponse("15", 1L),
+                new FacetCountResponse("OUTSIDE_PARIS", 1L),
+                new FacetCountResponse("UNKNOWN", 1L)
+        );
+    }
+
+    private EventEntity filterableEvent(
+            String id,
+            String title,
+            Instant startDate,
+            String zipcode,
+            Set<String> categories
+    ) {
+        return filterableEvent(id, title, startDate, zipcode, categories, "gratuit");
+    }
+
+    private EventEntity filterableEvent(
+            String id,
+            String title,
+            Instant startDate,
+            String zipcode,
+            Set<String> categories,
+            String priceType
+    ) {
+        EventEntity event = new EventEntity(id, title, startDate);
+        event.setLocation(new EventLocationEmbeddable(
+                "Test venue", "1 Test street", zipcode, "Paris", 48.8566, 2.3522
+        ));
+        event.setPricing(new EventPricingEmbeddable(
+                priceType, "Detail", "libre", null, null
+        ));
+        event.replaceCategories(categories);
+
+        return event;
     }
 
     private EventEntity serializableEvent(

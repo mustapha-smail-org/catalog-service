@@ -16,6 +16,17 @@ public class DateRangeResolver {
 
     private final Clock clock;
 
+    public DateRange resolveDate(LocalDate date) {
+        if (date == null) {
+            return null;
+        }
+
+        return new DateRange(
+                date.atStartOfDay(clock.getZone()).toInstant(),
+                date.plusDays(1).atStartOfDay(clock.getZone()).toInstant()
+        );
+    }
+
     public DateRange resolve(PeriodFilter period) {
         if (period == null) {
             return null;

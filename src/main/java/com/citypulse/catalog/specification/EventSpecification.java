@@ -4,6 +4,7 @@ import com.citypulse.catalog.dto.request.PricingFilter;
 import com.citypulse.catalog.entity.EventEntity;
 import com.citypulse.catalog.service.EventSearchCriteria;
 import com.citypulse.catalog.utils.DateRange;
+import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -39,9 +40,9 @@ public final class EventSpecification {
             );
         }
 
-        if (hasText(criteria.category())) {
+        if (isNotEmpty(criteria.categories())) {
             specification = specification.and(
-                    hasCategory(criteria.category())
+                    hasAnyCategory(criteria.categories())
             );
         }
 
@@ -52,9 +53,9 @@ public final class EventSpecification {
             );
         }
 
-        if (hasText(criteria.arrondissement())) {
+        if (isNotEmpty(criteria.arrondissements())) {
             specification = specification.and(
-                    hasArrondissement(criteria.arrondissement())
+                    hasAnyArrondissement(criteria.arrondissements())
             );
         }
 
@@ -104,18 +105,19 @@ public final class EventSpecification {
         };
     }
 
-    private static Specification<EventEntity> hasCategory(
-            String category
+    private static Specification<EventEntity> hasAnyCategory(
+            List<String> categories
     ) {
+        List<String> lowered = categories.stream()
+                .map(category -> category.trim().toLowerCase(Locale.ROOT))
+                .toList();
+
         return (root, query, builder) -> {
             query.distinct(true);
 
-            return builder.equal(
-                    builder.lower(
-                            root.join("categories", JoinType.INNER)
-                    ),
-                    category.trim().toLowerCase(Locale.ROOT)
-            );
+            return builder.lower(
+                    root.join("categories", JoinType.INNER)
+            ).in(lowered);
         };
     }
 
@@ -148,34 +150,46 @@ public final class EventSpecification {
         };
     }
 
-    private static Specification<EventEntity> hasArrondissement(
-            String value
+    private static Specification<EventEntity> hasAnyArrondissement(
+            List<String> values
     ) {
         return (root, query, builder) -> {
             Expression<String> zipcode =
                     root.get("location").get("zipcode");
 
-            if ("UNKNOWN".equals(value)) {
-                return builder.or(
-                        builder.isNull(zipcode),
-                        builder.equal(builder.trim(zipcode), "")
-                );
-            }
+            Predicate[] predicates = values.stream()
+                    .map(value -> arrondissementPredicate(builder, zipcode, value))
+                    .toArray(Predicate[]::new);
 
-            if ("OUTSIDE_PARIS".equals(value)) {
-                return builder.and(
-                        builder.isNotNull(zipcode),
-                        builder.notEqual(builder.trim(zipcode), ""),
-                        builder.not(zipcode.in(PARIS_ZIPCODES))
-                );
-            }
-
-            String expectedZipcode = "750%02d".formatted(
-                    Integer.parseInt(value)
-            );
-
-            return builder.equal(zipcode, expectedZipcode);
+            return builder.or(predicates);
         };
+    }
+
+    private static Predicate arrondissementPredicate(
+            CriteriaBuilder builder,
+            Expression<String> zipcode,
+            String value
+    ) {
+        if ("UNKNOWN".equals(value)) {
+            return builder.or(
+                    builder.isNull(zipcode),
+                    builder.equal(builder.trim(zipcode), "")
+            );
+        }
+
+        if ("OUTSIDE_PARIS".equals(value)) {
+            return builder.and(
+                    builder.isNotNull(zipcode),
+                    builder.notEqual(builder.trim(zipcode), ""),
+                    builder.not(zipcode.in(PARIS_ZIPCODES))
+            );
+        }
+
+        String expectedZipcode = "750%02d".formatted(
+                Integer.parseInt(value)
+        );
+
+        return builder.equal(zipcode, expectedZipcode);
     }
 
     private static Specification<EventEntity> containsText(String value) {
@@ -256,5 +270,9 @@ public final class EventSpecification {
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static boolean isNotEmpty(List<String> values) {
+        return values != null && !values.isEmpty();
     }
 }

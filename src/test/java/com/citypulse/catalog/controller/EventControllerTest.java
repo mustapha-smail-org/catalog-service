@@ -7,6 +7,7 @@ import com.citypulse.catalog.dto.request.FeedbackSubmissionRequest;
 import com.citypulse.catalog.dto.request.FeedbackType;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
+import com.citypulse.catalog.dto.response.EventFacetsResponse;
 import com.citypulse.catalog.dto.response.EventMapMarkerResponse;
 import com.citypulse.catalog.dto.response.EventSummaryResponse;
 import com.citypulse.catalog.dto.response.SubmissionResponse;
@@ -27,7 +28,7 @@ class EventControllerTest {
     private final FeedbackService feedbackService = mock(FeedbackService.class);
     private final EventController controller = new EventController(service, feedbackService);
     private final EventSearchRequest request = new EventSearchRequest(
-            null, null, null, null, null, null, null, null
+            null, null, null, null, null, null, null, null, null, null, null
     );
 
     @Test
@@ -44,6 +45,14 @@ class EventControllerTest {
         when(service.findMapEvents(request)).thenReturn(expected);
 
         assertThat(controller.findMapEvents(request)).isSameAs(expected);
+    }
+
+    @Test
+    void shouldDelegateFacetSearch() {
+        EventFacetsResponse expected = new EventFacetsResponse(List.of(), List.of());
+        when(service.findFacets(request)).thenReturn(expected);
+
+        assertThat(controller.findEventFacets(request)).isSameAs(expected);
     }
 
     @Test

@@ -4,12 +4,15 @@ import com.citypulse.catalog.dto.request.EventSearchRequest;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
 import com.citypulse.catalog.dto.response.EventMapMarkerResponse;
+import com.citypulse.catalog.dto.response.EventFacetsResponse;
 import com.citypulse.catalog.dto.response.EventSummaryResponse;
 import com.citypulse.catalog.entity.EventEntity;
 import com.citypulse.catalog.exception.EventNotFoundException;
 import com.citypulse.catalog.mapper.EventResponseMapper;
+import com.citypulse.catalog.repository.EventFacetRepository;
 import com.citypulse.catalog.repository.EventRepository;
 import com.citypulse.catalog.specification.EventSpecification;
+import com.citypulse.catalog.utils.DateRange;
 import com.citypulse.catalog.utils.DateRangeResolver;
 import com.citypulse.catalog.utils.EventCursorCodec;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ import java.util.List;
 public class EventQueryService {
 
     private final EventRepository eventRepository;
+    private final EventFacetRepository eventFacetRepository;
     private final EventResponseMapper mapper;
     private final DateRangeResolver dateRangeResolver;
     private final EventCursorCodec cursorCodec;
@@ -58,10 +62,34 @@ public class EventQueryService {
         return eventRepository.findDistinctCategories();
     }
 
+    public EventFacetsResponse findFacets(EventSearchRequest request) {
+        log.info("Searching for facets: {}", request);
+
+        DateRange dateRange = resolveDateRange(request);
+        // Drill-down faceting: each dimension's counts honour every other active
+        // filter but drop its own selection, so picking one category still shows
+        // its siblings as addable options. Facets ignore the cursor (whole match set).
+        EventSearchCriteria withoutCategories = new EventSearchCriteria(dateRange, List.of(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), null);
+        EventSearchCriteria withoutArrondissements = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), List.of(), normalize(request.query()), null);
+
+        return new EventFacetsResponse(
+                eventFacetRepository.countByCategory(withoutCategories),
+                eventFacetRepository.countByArrondissement(withoutArrondissements)
+        );
+    }
+
+    private DateRange resolveDateRange(EventSearchRequest request) {
+        return request.date() != null
+                ? dateRangeResolver.resolveDate(request.date())
+                : dateRangeResolver.resolve(request.period());
+    }
+
     private <T> CursorPageResponse<T> query(EventSearchRequest request, boolean requireCoordinates, java.util.function.Function<EventEntity, T> responseMapper) {
         int limit = request.effectiveLimit();
 
-        EventSearchCriteria criteria = new EventSearchCriteria(dateRangeResolver.resolve(request.period()), normalize(request.category()), request.effectivePricing(), request.arrondissement(), normalize(request.query()), cursorCodec.decode(request.cursor()));
+        DateRange dateRange = resolveDateRange(request);
+
+        EventSearchCriteria criteria = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), cursorCodec.decode(request.cursor()));
 
         Specification<EventEntity> specification = EventSpecification.matching(criteria);
 
