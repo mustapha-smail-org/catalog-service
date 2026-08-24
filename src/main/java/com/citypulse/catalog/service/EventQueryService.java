@@ -1,5 +1,6 @@
 package com.citypulse.catalog.service;
 
+import com.citypulse.catalog.config.CachingConfig;
 import com.citypulse.catalog.dto.request.EventSearchRequest;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
@@ -17,6 +18,7 @@ import com.citypulse.catalog.utils.DateRangeResolver;
 import com.citypulse.catalog.utils.EventCursorCodec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -37,31 +39,37 @@ public class EventQueryService {
     private final DateRangeResolver dateRangeResolver;
     private final EventCursorCodec cursorCodec;
 
+    @Cacheable(CachingConfig.EVENTS)
     public CursorPageResponse<EventSummaryResponse> findEvents(EventSearchRequest request) {
         log.info("Searching for events: {}", request);
         return query(request, false, mapper::toSummary);
     }
 
+    @Cacheable(CachingConfig.EVENTS_MAP)
     public CursorPageResponse<EventMapMarkerResponse> findMapEvents(EventSearchRequest request) {
         log.info("Searching for map events: {}", request);
         return query(request, true, mapper::toMapMarker);
     }
 
+    @Cacheable(CachingConfig.EVENT_BY_ID)
     public EventDetailResponse findById(String eventId) {
         log.info("Searching for event: {}", eventId);
         return eventRepository.findById(eventId).map(mapper::toDetail).orElseThrow(() -> new EventNotFoundException(eventId));
     }
 
+    @Cacheable(CachingConfig.EVENT_BY_SLUG)
     public EventDetailResponse findBySlug(String slug) {
         log.info("Searching for event slug: {}", slug);
         return eventRepository.findBySlug(slug).map(mapper::toDetail).orElseThrow(() -> new EventNotFoundException(slug));
     }
 
+    @Cacheable(CachingConfig.CATEGORIES)
     public List<String> findCategories() {
         log.info("Searching for categories");
         return eventRepository.findDistinctCategories();
     }
 
+    @Cacheable(CachingConfig.FACETS)
     public EventFacetsResponse findFacets(EventSearchRequest request) {
         log.info("Searching for facets: {}", request);
 

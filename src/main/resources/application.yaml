@@ -72,6 +72,10 @@ management:
     tags:
       application: catalog-service
 app:
+  cache:
+    enabled: ${CACHE_ENABLED:true}
+    ttl: ${CACHE_TTL:30m}
+    max-size: ${CACHE_MAX_SIZE:1000}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     username: ${KAFKA_USERNAME}
