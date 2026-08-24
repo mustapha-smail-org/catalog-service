@@ -1,11 +1,13 @@
 package com.citypulse.catalog.service;
 
+import com.citypulse.catalog.config.CachingConfig;
 import com.citypulse.catalog.entity.EventEntity;
 import com.citypulse.catalog.exception.EventIdentityConflictException;
 import com.citypulse.catalog.mapper.EventEntityUpdater;
 import com.citypulse.catalog.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,10 @@ public class EventIngestionService {
     private final EventRepository eventRepository;
     private final EventEntityUpdater eventEntityUpdater;
 
+    @CacheEvict(cacheNames = {
+            CachingConfig.EVENTS, CachingConfig.EVENTS_MAP, CachingConfig.FACETS,
+            CachingConfig.CATEGORIES, CachingConfig.EVENT_BY_ID, CachingConfig.EVENT_BY_SLUG
+    }, allEntries = true)
     @Transactional
     public IngestionResult ingest(EventEntity incoming) {
         Objects.requireNonNull(incoming, "Incoming event must not be null");
