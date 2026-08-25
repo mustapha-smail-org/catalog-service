@@ -72,6 +72,10 @@ management:
     tags:
       application: catalog-service
 app:
+  admin:
+    # Shared secret for the admin read endpoints (feedback + reports). Blank =
+    # endpoints deny every request, so a deploy without it exposes nothing.
+    token: ${ADMIN_API_TOKEN:}
   cache:
     enabled: ${CACHE_ENABLED:true}
     ttl: ${CACHE_TTL:30m}

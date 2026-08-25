@@ -37,6 +37,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, ApiErrorCode.EVENT_NOT_FOUND, "Event not found", exception.getMessage(), request, null);
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    ResponseEntity<ProblemDetail> handleUnauthorized(UnauthorizedException exception, HttpServletRequest request) {
+        return problem(HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "Unauthorized", exception.getMessage(), request, null);
+    }
+
     @ExceptionHandler(InvalidCursorException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     ResponseEntity<ProblemDetail> handleInvalidCursor(InvalidCursorException exception, HttpServletRequest request) {

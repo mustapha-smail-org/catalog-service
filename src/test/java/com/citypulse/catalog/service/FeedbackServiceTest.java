@@ -17,8 +17,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -98,5 +101,59 @@ class FeedbackServiceTest {
         assertThatThrownBy(() -> service.reportEvent("missing", request))
                 .isInstanceOf(EventNotFoundException.class)
                 .hasMessageContaining("missing");
+    }
+
+    @Test
+    void shouldMapFeedbackPageAndExposeNextCursorWhenMoreExist() {
+        FeedbackSubmissionEntity entity = new FeedbackSubmissionEntity(
+                FeedbackType.BUG, "Map does not load", "reader@example.com"
+        );
+        entity.setId(7L);
+        entity.setCreatedAt(Instant.parse("2026-08-20T10:00:00Z"));
+        // total 45 rows over pages of 20 -> page 0 has a next page
+        when(feedbackRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(entity), PageRequest.of(0, 20), 45));
+
+        var page = service.listFeedback(0, 20);
+
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.items().getFirst().id()).isEqualTo("7");
+        assertThat(page.items().getFirst().type()).isEqualTo(FeedbackType.BUG);
+        assertThat(page.items().getFirst().email()).isEqualTo("reader@example.com");
+        assertThat(page.hasNext()).isTrue();
+        assertThat(page.nextCursor()).isEqualTo("1");
+    }
+
+    @Test
+    void shouldClampFeedbackPageSizeAndDefaultNullArguments() {
+        when(feedbackRepository.findAllByOrderByCreatedAtDesc(any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.listFeedback(null, 5_000);
+
+        ArgumentCaptor<PageRequest> pageRequest = ArgumentCaptor.forClass(PageRequest.class);
+        verify(feedbackRepository).findAllByOrderByCreatedAtDesc(pageRequest.capture());
+        assertThat(pageRequest.getValue().getPageNumber()).isZero();
+        assertThat(pageRequest.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void shouldMapReportPageWithoutNextCursorOnLastPage() {
+        EventReportEntity entity = new EventReportEntity(
+                "event-42", "open-air-cinema-a1b2c3d4", "Open Air Cinema",
+                EventReportType.BROKEN_LINK, "Ticket link is dead", null
+        );
+        entity.setId(9L);
+        entity.setCreatedAt(Instant.parse("2026-08-21T09:00:00Z"));
+        when(reportRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(entity), PageRequest.of(0, 20), 1));
+
+        var page = service.listReports(null, null);
+
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.items().getFirst().eventTitle()).isEqualTo("Open Air Cinema");
+        assertThat(page.items().getFirst().type()).isEqualTo(EventReportType.BROKEN_LINK);
+        assertThat(page.hasNext()).isFalse();
+        assertThat(page.nextCursor()).isNull();
     }
 }
