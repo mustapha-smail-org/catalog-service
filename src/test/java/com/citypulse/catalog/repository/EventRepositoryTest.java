@@ -262,6 +262,38 @@ class EventRepositoryTest {
     }
 
     @Test
+    void environmentFilterMatchesApiValueOrEnrichmentFallback() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        EventEntity apiOutdoor = new EventEntity("api-outdoor", "API outdoor", start);
+        apiOutdoor.setEnvironment(EventEnvironment.OUTDOOR);
+        EventEntity aiOutdoor = new EventEntity("ai-outdoor", "AI outdoor", start);
+        aiOutdoor.setEnvironment(EventEnvironment.UNKNOWN);
+        EventEntity aiIndoor = new EventEntity("ai-indoor", "AI indoor", start);
+        aiIndoor.setEnvironment(EventEnvironment.UNKNOWN);
+        repository.saveAllAndFlush(List.of(apiOutdoor, aiOutdoor, aiIndoor));
+        enrichmentRepository.saveAllAndFlush(List.of(
+                fallbackEnrichment(aiOutdoor, "OUTDOOR"),
+                fallbackEnrichment(aiIndoor, "INDOOR")));
+        entityManager.clear();
+
+        EventSearchCriteria criteria = new EventSearchCriteria(
+                null, null, null, null, null, "OUTDOOR", null);
+        List<String> ids = repository.findAll(EventSpecification.matching(criteria))
+                .stream().map(EventEntity::getId).sorted().toList();
+
+        assertThat(ids).containsExactly("ai-outdoor", "api-outdoor");
+    }
+
+    private EventEnrichmentEntity fallbackEnrichment(EventEntity event, String fallback) {
+        EventEnrichmentEntity e = new EventEnrichmentEntity(event);
+        e.setEnvironmentFallback(fallback);
+        e.setEnrichmentModel("test");
+        e.setEnrichmentVersion(1);
+        e.setEnrichedAt(Instant.parse("2026-08-14T09:00:00Z"));
+        return e;
+    }
+
+    @Test
     void eventWithoutEnrichmentReportsNull() {
         EventEntity event = new EventEntity(
                 "event-bare", "No enrichment yet",

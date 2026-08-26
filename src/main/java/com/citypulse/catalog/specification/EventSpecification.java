@@ -2,6 +2,7 @@ package com.citypulse.catalog.specification;
 
 import com.citypulse.catalog.dto.request.PricingFilter;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnrichmentEntity;
 import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import com.citypulse.catalog.service.EventSearchCriteria;
@@ -88,8 +89,24 @@ public final class EventSpecification {
 
     private static Specification<EventEntity> hasEnvironment(String environment) {
         EventEnvironment value = EventEnvironment.valueOf(environment);
-        return (root, query, builder) ->
-                builder.equal(root.get("environment"), value);
+        return (root, query, builder) -> {
+            Predicate direct = builder.equal(root.get("environment"), value);
+
+            // API left it unknown, but the AI's fallback matches.
+            Subquery<Long> fallback = query.subquery(Long.class);
+            Root<EventEnrichmentEntity> enrichment =
+                    fallback.from(EventEnrichmentEntity.class);
+            fallback.select(builder.literal(1L)).where(
+                    builder.equal(enrichment.get("eventId"), root.get("id")),
+                    builder.equal(enrichment.get("environmentFallback"), value.name())
+            );
+            Predicate viaFallback = builder.and(
+                    builder.equal(root.get("environment"), EventEnvironment.UNKNOWN),
+                    builder.exists(fallback)
+            );
+
+            return builder.or(direct, viaFallback);
+        };
     }
 
     public static Specification<EventEntity> hasCoordinates() {

@@ -248,11 +248,22 @@ public class EventResponseMapper {
         );
     }
 
+    /**
+     * The effective indoor/outdoor setting: the API-derived value when known,
+     * otherwise the AI's fallback (for events the Paris feed left unclassified,
+     * e.g. everything ingested before the environment field existed).
+     */
     private String environmentName(EventEntity event) {
         var environment = event.getEnvironment();
-        return (environment == null
-                ? com.citypulse.catalog.entity.EventEnvironment.UNKNOWN
-                : environment).name();
+        if (environment != null
+                && environment != com.citypulse.catalog.entity.EventEnvironment.UNKNOWN) {
+            return environment.name();
+        }
+        var enrichment = event.getEnrichment();
+        if (enrichment != null && enrichment.getEnvironmentFallback() != null) {
+            return enrichment.getEnvironmentFallback();
+        }
+        return com.citypulse.catalog.entity.EventEnvironment.UNKNOWN.name();
     }
 
     private OffsetDateTime parisTime(Instant value) {

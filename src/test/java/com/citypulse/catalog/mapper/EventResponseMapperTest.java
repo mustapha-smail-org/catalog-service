@@ -49,6 +49,21 @@ class EventResponseMapperTest {
     }
 
     @Test
+    void usesEnrichmentEnvironmentFallbackWhenApiValueUnknown() {
+        EventEntity event = event();
+        event.setEnvironment(EventEnvironment.UNKNOWN);
+        EventEnrichmentEntity enrichment = new EventEnrichmentEntity(event);
+        enrichment.setEnvironmentFallback("INDOOR");
+        event.setEnrichment(enrichment);
+
+        assertThat(mapper.toSummary(event).environment()).isEqualTo("INDOOR");
+
+        // A known API value wins over the AI fallback.
+        event.setEnvironment(EventEnvironment.OUTDOOR);
+        assertThat(mapper.toSummary(event).environment()).isEqualTo("OUTDOOR");
+    }
+
+    @Test
     void shouldMapEnrichmentBlockWhenPresent() {
         EventEntity event = event();
         EventEnrichmentEntity enrichment = new EventEnrichmentEntity(event);
