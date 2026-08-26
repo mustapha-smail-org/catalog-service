@@ -266,6 +266,26 @@ class EventQueryServiceTest {
     }
 
     @Test
+    void relevancePaginatesThroughTheUnenrichedTail() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                ranked("evt-a", 0.9, start), ranked("evt-b", null, start),
+                ranked("evt-c", null, start)));
+
+        CursorPageResponse<EventSummaryResponse> p1 = findRelevance(1, null);
+        assertThat(idsOf(p1)).containsExactly("evt-a");
+
+        // Page 2 enters the null-rank tail; its cursor therefore carries a null
+        // rank, exercising the null-cursor branch of the keyset on page 3.
+        CursorPageResponse<EventSummaryResponse> p2 = findRelevance(1, p1.nextCursor());
+        assertThat(idsOf(p2)).containsExactly("evt-b");
+
+        CursorPageResponse<EventSummaryResponse> p3 = findRelevance(1, p2.nextCursor());
+        assertThat(idsOf(p3)).containsExactly("evt-c");
+        assertThat(p3.hasNext()).isFalse();
+    }
+
+    @Test
     void rejectsCursorReplayedUnderADifferentSort() {
         Instant start = Instant.parse("2026-09-01T18:00:00Z");
         eventRepository.saveAll(List.of(

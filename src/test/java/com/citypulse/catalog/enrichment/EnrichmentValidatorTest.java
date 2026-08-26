@@ -52,6 +52,22 @@ class EnrichmentValidatorTest {
     }
 
     @Test
+    void rejectsNullResult() {
+        assertThat(validator.validate(null)).containsExactly("result is null");
+        assertThat(validator.isValid(null)).isFalse();
+    }
+
+    @Test
+    void rejectsTooManySemanticTags() {
+        EnrichmentResult result = new EnrichmentResult(
+                List.of("CONCERT"), List.of("FESTIF"), List.of("SOLO"),
+                List.of("a", "b", "c", "d", "e", "f", "g", "h", "i"),
+                "CALME", null, 10, 10);
+        assertThat(validator.validate(result))
+                .anyMatch(error -> error.contains("semanticTags"));
+    }
+
+    @Test
     void rejectsBadEnvironmentFallback() {
         EnrichmentResult result = new EnrichmentResult(
                 List.of("CONCERT"), List.of("FESTIF"), List.of("SOLO"),
