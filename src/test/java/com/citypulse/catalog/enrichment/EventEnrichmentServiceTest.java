@@ -5,6 +5,7 @@ import com.citypulse.catalog.entity.EventEnrichmentEntity;
 import com.citypulse.catalog.repository.EventEnrichmentRepository;
 import com.citypulse.catalog.repository.EventRepository;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -52,7 +53,7 @@ class EventEnrichmentServiceTest {
     }
 
     @Test
-    void persistsValidEnrichment() {
+    void persistsValidEnrichmentWithRankScore() {
         selectSingleEvent();
         when(client.enrich(any())).thenReturn(validResult());
 
@@ -60,7 +61,14 @@ class EventEnrichmentServiceTest {
 
         assertThat(report.enriched()).isEqualTo(1);
         assertThat(report.skipped()).isZero();
-        verify(enrichmentRepository).save(any(EventEnrichmentEntity.class));
+
+        ArgumentCaptor<EventEnrichmentEntity> saved =
+                ArgumentCaptor.forClass(EventEnrichmentEntity.class);
+        verify(enrichmentRepository).save(saved.capture());
+        // validResult: uniqueness 60, quality 70 -> 0.4*0.6 + 0.6*0.7
+        assertThat(saved.getValue().getRankScore())
+                .isEqualTo(EnrichmentRankScorer.score(60, 70));
+        assertThat(saved.getValue().getEnrichmentVersion()).isEqualTo(1);
     }
 
     @Test

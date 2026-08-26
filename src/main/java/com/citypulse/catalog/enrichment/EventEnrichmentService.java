@@ -124,6 +124,8 @@ public class EventEnrichmentService {
         entity.setEnvironmentFallback(result.environmentFallback());
         entity.setUniquenessScore(result.uniquenessScore());
         entity.setQualityScore(result.qualityScore());
+        entity.setRankScore(EnrichmentRankScorer.score(
+                result.uniquenessScore(), result.qualityScore()));
         entity.setEnrichmentModel(properties.model());
         entity.setEnrichmentVersion(properties.promptVersion());
         entity.setEnrichmentSourceVersion(event.getSourceUpdatedAt());
