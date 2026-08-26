@@ -112,6 +112,13 @@ public class EventEntity {
     @Column(name = "environment", nullable = false, length = 10)
     private EventEnvironment environment = EventEnvironment.UNKNOWN;
 
+    @OneToOne(
+            mappedBy = "event",
+            fetch = FetchType.LAZY,
+            optional = true
+    )
+    private EventEnrichmentEntity enrichment;
+
     @Column(name = "source_updated_at")
     private Instant sourceUpdatedAt;
 

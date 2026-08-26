@@ -35,6 +35,8 @@ class EventRepositoryTest {
     @Autowired
     private EventRepository repository;
     @Autowired
+    private EventEnrichmentRepository enrichmentRepository;
+    @Autowired
     private EntityManager entityManager;
 
     @DynamicPropertySource
@@ -183,6 +185,54 @@ class EventRepositoryTest {
                 range, null, null, null, null, null);
         return repository.findAll(EventSpecification.matching(criteria))
                 .stream().map(EventEntity::getId).sorted().toList();
+    }
+
+    @Test
+    void shouldPersistAndReloadEnrichmentWithArrays() {
+        EventEntity event = new EventEntity(
+                "event-enriched", "Rooftop techno",
+                Instant.parse("2026-08-20T18:00:00Z"));
+        repository.saveAndFlush(event);
+
+        EventEnrichmentEntity enrichment = new EventEnrichmentEntity(event);
+        enrichment.setNormCategories(List.of("CLUBBING", "CONCERT"));
+        enrichment.setMoodAffinities(List.of("FESTIF", "UNDERGROUND"));
+        enrichment.setSocialContexts(List.of("ENTRE_AMIS"));
+        enrichment.setSemanticTags(List.of("rooftop", "techno"));
+        enrichment.setEnergyLevel("INTENSE");
+        enrichment.setUniquenessScore(72);
+        enrichment.setQualityScore(64);
+        enrichment.setEnrichmentModel("test-model");
+        enrichment.setEnrichmentVersion(1);
+        enrichment.setEnrichmentSourceVersion(Instant.parse("2026-08-13T09:00:00Z"));
+        enrichment.setEnrichedAt(Instant.parse("2026-08-14T09:00:00Z"));
+        enrichmentRepository.saveAndFlush(enrichment);
+        entityManager.clear();
+
+        EventEnrichmentEntity reloaded =
+                enrichmentRepository.findById("event-enriched").orElseThrow();
+
+        assertThat(reloaded.getNormCategories())
+                .containsExactly("CLUBBING", "CONCERT");
+        assertThat(reloaded.getMoodAffinities())
+                .containsExactly("FESTIF", "UNDERGROUND");
+        assertThat(reloaded.getSemanticTags()).containsExactly("rooftop", "techno");
+        assertThat(reloaded.getEnergyLevel()).isEqualTo("INTENSE");
+        assertThat(reloaded.getUniquenessScore()).isEqualTo(72);
+        assertThat(reloaded.getEnvironmentFallback()).isNull();
+        assertThat(reloaded.getEvent().getId()).isEqualTo("event-enriched");
+    }
+
+    @Test
+    void eventWithoutEnrichmentReportsNull() {
+        EventEntity event = new EventEntity(
+                "event-bare", "No enrichment yet",
+                Instant.parse("2026-08-20T18:00:00Z"));
+        repository.saveAndFlush(event);
+        entityManager.clear();
+
+        EventEntity reloaded = repository.findById("event-bare").orElseThrow();
+        assertThat(reloaded.getEnrichment()).isNull();
     }
 
     @Test
