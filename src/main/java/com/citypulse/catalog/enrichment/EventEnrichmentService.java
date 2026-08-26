@@ -1,21 +1,20 @@
 package com.citypulse.catalog.enrichment;
 
-import com.citypulse.catalog.entity.EventEntity;
-import com.citypulse.catalog.entity.EventEnrichmentEntity;
-import com.citypulse.catalog.repository.EventEnrichmentRepository;
 import com.citypulse.catalog.repository.EventRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
 import java.util.List;
 
 /**
  * The enrichment worker: picks events whose enrichment is missing or stale,
- * asks the {@link EnrichmentClient} for a result, validates it, and persists a
- * child {@code event_enrichment} row. Isolated from the Kafka consumer and the
+ * asks the {@link EnrichmentClient} for a result, validates it, and hands it to
+ * {@link EnrichmentStore} to persist. Isolated from the Kafka consumer and the
  * REST path (Track B locked decision); only wires when {@code app.enrichment.enabled}.
+ *
+ * <p>The model call sits between two short store transactions and is never
+ * itself transactional, so no DB connection is held during the (slow) call.
  *
  * <p>Failure ladder (enrichment is additive — it never blocks serving):
  * transient client errors are retried in-cycle then the event is left for the
@@ -27,24 +26,21 @@ import java.util.List;
 public class EventEnrichmentService {
 
     private final EventRepository eventRepository;
-    private final EventEnrichmentRepository enrichmentRepository;
+    private final EnrichmentStore store;
     private final EnrichmentClient client;
     private final EnrichmentValidator validator;
     private final EnrichmentProperties properties;
-    private final Clock clock;
 
     public EventEnrichmentService(EventRepository eventRepository,
-                                  EventEnrichmentRepository enrichmentRepository,
+                                  EnrichmentStore store,
                                   EnrichmentClient client,
                                   EnrichmentValidator validator,
-                                  EnrichmentProperties properties,
-                                  Clock clock) {
+                                  EnrichmentProperties properties) {
         this.eventRepository = eventRepository;
-        this.enrichmentRepository = enrichmentRepository;
+        this.store = store;
         this.client = client;
         this.validator = validator;
         this.properties = properties;
-        this.clock = clock;
     }
 
     public EnrichmentBatchReport enrichPending() {
@@ -56,14 +52,14 @@ public class EventEnrichmentService {
         int failed = 0;
 
         for (String id : ids) {
-            EventEntity event = eventRepository.findById(id).orElse(null);
-            if (event == null) {
+            EnrichmentInput input = store.loadInput(id).orElse(null);
+            if (input == null) {
                 continue;
             }
 
             EnrichmentResult result;
             try {
-                result = callWithRetry(event);
+                result = callWithRetry(id, input);
             } catch (RuntimeException exception) {
                 failed++;
                 log.warn("Enrichment failed for {} after retries: {}",
@@ -84,7 +80,7 @@ public class EventEnrichmentService {
                 continue;
             }
 
-            persist(event, result);
+            store.save(id, result);
             enriched++;
         }
 
@@ -94,8 +90,7 @@ public class EventEnrichmentService {
         return report;
     }
 
-    private EnrichmentResult callWithRetry(EventEntity event) {
-        EnrichmentInput input = toInput(event);
+    private EnrichmentResult callWithRetry(String eventId, EnrichmentInput input) {
         RuntimeException last = null;
 
         for (int attempt = 0; attempt <= properties.maxRetries(); attempt++) {
@@ -104,61 +99,10 @@ public class EventEnrichmentService {
             } catch (RuntimeException exception) {
                 last = exception;
                 log.debug("Enrichment attempt {} for {} failed: {}",
-                        attempt, event.getId(), exception.toString());
+                        attempt, eventId, exception.toString());
             }
         }
 
         throw last;
-    }
-
-    private void persist(EventEntity event, EnrichmentResult result) {
-        EventEnrichmentEntity entity = enrichmentRepository.findById(event.getId())
-                .orElseGet(() -> new EventEnrichmentEntity(event));
-
-        entity.setNormCategories(result.categories());
-        entity.setMoodAffinities(result.moodAffinities());
-        entity.setSocialContexts(result.socialContexts());
-        entity.setSemanticTags(result.semanticTags() == null
-                ? List.of() : result.semanticTags());
-        entity.setEnergyLevel(result.energyLevel());
-        entity.setEnvironmentFallback(result.environmentFallback());
-        entity.setUniquenessScore(result.uniquenessScore());
-        entity.setQualityScore(result.qualityScore());
-        double rankScore = EnrichmentRankScorer.score(
-                result.uniquenessScore(), result.qualityScore());
-        entity.setRankScore(rankScore);
-        entity.setEnrichmentModel(properties.model());
-        entity.setEnrichmentVersion(properties.promptVersion());
-        entity.setEnrichmentSourceVersion(event.getSourceUpdatedAt());
-        entity.setEnrichedAt(clock.instant());
-
-        enrichmentRepository.save(entity);
-
-        // Denormalise onto the event so the RELEVANCE sort avoids a join.
-        event.setRankScore(rankScore);
-        eventRepository.save(event);
-    }
-
-    private EnrichmentInput toInput(EventEntity event) {
-        return new EnrichmentInput(
-                event.getTitle(),
-                event.getLeadText(),
-                event.getDescription(),
-                List.copyOf(event.getCategories()),
-                event.getLocation() == null ? null : event.getLocation().getName(),
-                arrondissement(event),
-                event.getPricing() == null ? null : event.getPricing().getPriceType(),
-                event.getEnvironment() == null ? null : event.getEnvironment().name());
-    }
-
-    private Integer arrondissement(EventEntity event) {
-        if (event.getLocation() == null) {
-            return null;
-        }
-        String zipcode = event.getLocation().getZipcode();
-        if (zipcode == null || !zipcode.matches("750(?:0[1-9]|1[0-9]|20)")) {
-            return null;
-        }
-        return Integer.parseInt(zipcode.substring(3));
     }
 }

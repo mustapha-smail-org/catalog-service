@@ -1,20 +1,14 @@
 package com.citypulse.catalog.enrichment;
 
-import com.citypulse.catalog.entity.EventEntity;
-import com.citypulse.catalog.entity.EventEnrichmentEntity;
-import com.citypulse.catalog.repository.EventEnrichmentRepository;
 import com.citypulse.catalog.repository.EventRepository;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -24,12 +18,12 @@ import static org.mockito.Mockito.when;
 class EventEnrichmentServiceTest {
 
     private final EventRepository eventRepository = mock(EventRepository.class);
-    private final EventEnrichmentRepository enrichmentRepository =
-            mock(EventEnrichmentRepository.class);
+    private final EnrichmentStore store = mock(EnrichmentStore.class);
     private final EnrichmentClient client = mock(EnrichmentClient.class);
     private final EnrichmentValidator validator = new EnrichmentValidator();
-    private final Clock clock =
-            Clock.fixed(Instant.parse("2026-08-26T10:00:00Z"), ZoneOffset.UTC);
+
+    private final EnrichmentInput input = new EnrichmentInput(
+            "Title", null, null, List.of(), null, null, "gratuit", "OUTDOOR");
 
     private EnrichmentResult validResult() {
         return new EnrichmentResult(
@@ -40,20 +34,16 @@ class EventEnrichmentServiceTest {
     private EventEnrichmentService service(boolean dryRun) {
         EnrichmentProperties props =
                 new EnrichmentProperties(true, dryRun, 50, 2, 1, "test-model");
-        return new EventEnrichmentService(
-                eventRepository, enrichmentRepository, client, validator, props, clock);
+        return new EventEnrichmentService(eventRepository, store, client, validator, props);
     }
 
     private void selectSingleEvent() {
-        EventEntity event =
-                new EventEntity("e1", "Title", Instant.parse("2026-08-20T18:00:00Z"));
         when(eventRepository.findIdsNeedingEnrichment(1, 50)).thenReturn(List.of("e1"));
-        when(eventRepository.findById("e1")).thenReturn(Optional.of(event));
-        when(enrichmentRepository.findById("e1")).thenReturn(Optional.empty());
+        when(store.loadInput("e1")).thenReturn(Optional.of(input));
     }
 
     @Test
-    void persistsValidEnrichmentWithRankScore() {
+    void persistsValidEnrichmentViaStore() {
         selectSingleEvent();
         when(client.enrich(any())).thenReturn(validResult());
 
@@ -61,18 +51,11 @@ class EventEnrichmentServiceTest {
 
         assertThat(report.enriched()).isEqualTo(1);
         assertThat(report.skipped()).isZero();
-
-        ArgumentCaptor<EventEnrichmentEntity> saved =
-                ArgumentCaptor.forClass(EventEnrichmentEntity.class);
-        verify(enrichmentRepository).save(saved.capture());
-        // validResult: uniqueness 60, quality 70 -> 0.4*0.6 + 0.6*0.7
-        assertThat(saved.getValue().getRankScore())
-                .isEqualTo(EnrichmentRankScorer.score(60, 70));
-        assertThat(saved.getValue().getEnrichmentVersion()).isEqualTo(1);
+        verify(store).save(eq("e1"), any(EnrichmentResult.class));
     }
 
     @Test
-    void skipsInvalidEnrichmentWithoutPersisting() {
+    void skipsInvalidEnrichmentWithoutSaving() {
         selectSingleEvent();
         when(client.enrich(any())).thenReturn(new EnrichmentResult(
                 List.of("BOGUS"), List.of("FESTIF"), List.of("SOLO"),
@@ -82,7 +65,7 @@ class EventEnrichmentServiceTest {
 
         assertThat(report.skipped()).isEqualTo(1);
         assertThat(report.enriched()).isZero();
-        verify(enrichmentRepository, never()).save(any());
+        verify(store, never()).save(any(), any());
     }
 
     @Test
@@ -95,17 +78,17 @@ class EventEnrichmentServiceTest {
         assertThat(report.failed()).isEqualTo(1);
         // maxRetries=2 -> 3 attempts total
         verify(client, times(3)).enrich(any());
-        verify(enrichmentRepository, never()).save(any());
+        verify(store, never()).save(any(), any());
     }
 
     @Test
-    void dryRunValidatesButDoesNotPersist() {
+    void dryRunValidatesButDoesNotSave() {
         selectSingleEvent();
         when(client.enrich(any())).thenReturn(validResult());
 
         EnrichmentBatchReport report = service(true).enrichPending();
 
         assertThat(report.enriched()).isEqualTo(1);
-        verify(enrichmentRepository, never()).save(any());
+        verify(store, never()).save(any(), any());
     }
 }
