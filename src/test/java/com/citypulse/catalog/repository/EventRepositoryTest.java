@@ -224,6 +224,44 @@ class EventRepositoryTest {
     }
 
     @Test
+    void findIdsNeedingEnrichmentSelectsMissingStaleAndOutdated() {
+        Instant sourceV1 = Instant.parse("2026-08-13T09:00:00Z");
+
+        // needs: never enriched
+        EventEntity missing = new EventEntity("need-missing", "Missing", sourceV1);
+        missing.setSourceUpdatedAt(sourceV1);
+        // needs: enriched at an older prompt version
+        EventEntity oldVersion = new EventEntity("need-oldver", "Old version", sourceV1);
+        oldVersion.setSourceUpdatedAt(sourceV1);
+        // needs: source changed since it was enriched
+        EventEntity stale = new EventEntity("need-stale", "Stale source", sourceV1);
+        stale.setSourceUpdatedAt(Instant.parse("2026-08-20T09:00:00Z"));
+        // up to date: same version, source matches -> must NOT be selected
+        EventEntity current = new EventEntity("skip-current", "Current", sourceV1);
+        current.setSourceUpdatedAt(sourceV1);
+        repository.saveAllAndFlush(List.of(missing, oldVersion, stale, current));
+
+        enrichmentRepository.saveAllAndFlush(List.of(
+                enrichmentFor(oldVersion, 0, sourceV1),
+                enrichmentFor(stale, 1, sourceV1),
+                enrichmentFor(current, 1, sourceV1)));
+        entityManager.clear();
+
+        assertThat(repository.findIdsNeedingEnrichment(1, 50))
+                .containsExactlyInAnyOrder("need-missing", "need-oldver", "need-stale")
+                .doesNotContain("skip-current");
+    }
+
+    private EventEnrichmentEntity enrichmentFor(EventEntity event, int version, Instant sourceVersion) {
+        EventEnrichmentEntity e = new EventEnrichmentEntity(event);
+        e.setEnrichmentModel("test");
+        e.setEnrichmentVersion(version);
+        e.setEnrichmentSourceVersion(sourceVersion);
+        e.setEnrichedAt(Instant.parse("2026-08-14T09:00:00Z"));
+        return e;
+    }
+
+    @Test
     void eventWithoutEnrichmentReportsNull() {
         EventEntity event = new EventEntity(
                 "event-bare", "No enrichment yet",
