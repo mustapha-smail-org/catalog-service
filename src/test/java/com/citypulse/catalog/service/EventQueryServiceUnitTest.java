@@ -64,7 +64,7 @@ class EventQueryServiceUnitTest {
     void shouldReturnLimitedSummaryPageAndEncodeNextCursor() {
         EventSearchRequest request = new EventSearchRequest(
                 null, null, null, "  Cinema  ", null, null, "1", "  summer  ", null, 2, "cursor"
-        );
+        , null);
         EventEntity first = event("event-1", "2026-08-20T18:00:00Z");
         EventEntity second = event("event-2", "2026-08-21T18:00:00Z");
         EventEntity lookahead = event("event-3", "2026-08-22T18:00:00Z");
@@ -94,7 +94,7 @@ class EventQueryServiceUnitTest {
     void shouldReturnMapPageWithoutCursorWhenNoLookaheadExists() {
         EventSearchRequest request = new EventSearchRequest(
                 null, null, null, "  ", PricingFilter.FREE, null, null, "  ", null, 10, null
-        );
+        , null);
         EventEntity event = event("event-1", "2026-08-20T18:00:00Z");
         EventMapMarkerResponse marker = mock(EventMapMarkerResponse.class);
 
@@ -150,7 +150,7 @@ class EventQueryServiceUnitTest {
         LocalDate date = LocalDate.of(2026, 8, 20);
         EventSearchRequest request = new EventSearchRequest(
                 PeriodFilter.THIS_WEEK, date, null, null, null, null, null, null, null, 10, null
-        );
+        , null);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
@@ -164,7 +164,7 @@ class EventQueryServiceUnitTest {
     void shouldFallBackToPeriodWhenDateAbsent() {
         EventSearchRequest request = new EventSearchRequest(
                 PeriodFilter.THIS_WEEK, null, null, null, null, null, null, null, null, 10, null
-        );
+        , null);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
@@ -179,7 +179,7 @@ class EventQueryServiceUnitTest {
         EventSearchRequest request = new EventSearchRequest(
                 null, LocalDate.of(2026, 8, 20), List.of("Concerts"), null, PricingFilter.FREE,
                 List.of("1"), null, "  jazz  ", null, null, "ignored-cursor"
-        );
+        , null);
         DateRange range = new DateRange(
                 Instant.parse("2026-08-19T22:00:00Z"), Instant.parse("2026-08-20T22:00:00Z")
         );

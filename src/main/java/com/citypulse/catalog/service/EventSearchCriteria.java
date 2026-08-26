@@ -13,6 +13,7 @@ public record EventSearchCriteria(
         PricingFilter pricing,
         List<String> arrondissements,
         String query,
+        String environment,
         CursorPosition cursor
 ) {
 

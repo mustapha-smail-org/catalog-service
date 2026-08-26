@@ -126,7 +126,7 @@ class EventQueryCacheTest {
     private EventSearchRequest search(String query) {
         return new EventSearchRequest(
                 null, null, null, null, null, null, null, query, null, 30, null
-        );
+        , null);
     }
 
     private static EventEntity event(String id) {

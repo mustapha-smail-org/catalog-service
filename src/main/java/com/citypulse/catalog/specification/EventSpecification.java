@@ -2,6 +2,7 @@ package com.citypulse.catalog.specification;
 
 import com.citypulse.catalog.dto.request.PricingFilter;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import com.citypulse.catalog.service.EventSearchCriteria;
 import com.citypulse.catalog.utils.DateRange;
@@ -70,6 +71,12 @@ public final class EventSpecification {
             );
         }
 
+        if (hasText(criteria.environment())) {
+            specification = specification.and(
+                    hasEnvironment(criteria.environment())
+            );
+        }
+
         if (criteria.cursor() != null) {
             specification = specification.and(
                     afterCursor(criteria.cursor())
@@ -77,6 +84,12 @@ public final class EventSpecification {
         }
 
         return specification;
+    }
+
+    private static Specification<EventEntity> hasEnvironment(String environment) {
+        EventEnvironment value = EventEnvironment.valueOf(environment);
+        return (root, query, builder) ->
+                builder.equal(root.get("environment"), value);
     }
 
     public static Specification<EventEntity> hasCoordinates() {

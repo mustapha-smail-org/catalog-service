@@ -182,7 +182,7 @@ class EventRepositoryTest {
 
     private List<String> idsMatching(DateRange range) {
         EventSearchCriteria criteria = new EventSearchCriteria(
-                range, null, null, null, null, null);
+                range, null, null, null, null, null, null);
         return repository.findAll(EventSpecification.matching(criteria))
                 .stream().map(EventEntity::getId).sorted().toList();
     }

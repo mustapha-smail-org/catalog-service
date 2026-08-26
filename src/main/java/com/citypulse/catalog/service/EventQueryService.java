@@ -79,8 +79,8 @@ public class EventQueryService {
         // Drill-down faceting: each dimension's counts honour every other active
         // filter but drop its own selection, so picking one category still shows
         // its siblings as addable options. Facets ignore the cursor (whole match set).
-        EventSearchCriteria withoutCategories = new EventSearchCriteria(dateRange, List.of(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), null);
-        EventSearchCriteria withoutArrondissements = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), List.of(), normalize(request.query()), null);
+        EventSearchCriteria withoutCategories = new EventSearchCriteria(dateRange, List.of(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), normalize(request.environment()), null);
+        EventSearchCriteria withoutArrondissements = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), List.of(), normalize(request.query()), normalize(request.environment()), null);
 
         return new EventFacetsResponse(
                 eventFacetRepository.countByCategory(withoutCategories),
@@ -100,7 +100,7 @@ public class EventQueryService {
         DateRange dateRange = resolveDateRange(request);
 
         EventSort sort = request.effectiveSort();
-        EventSearchCriteria criteria = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), decodeCursor(request.cursor(), sort));
+        EventSearchCriteria criteria = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), normalize(request.environment()), decodeCursor(request.cursor(), sort));
 
         Specification<EventEntity> specification = EventSpecification.matching(criteria);
 

@@ -29,7 +29,7 @@ class EventControllerTest {
     private final EventController controller = new EventController(service, feedbackService);
     private final EventSearchRequest request = new EventSearchRequest(
             null, null, null, null, null, null, null, null, null, null, null
-    );
+    , null);
 
     @Test
     void shouldDelegateEventSearch() {
