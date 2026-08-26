@@ -207,6 +207,7 @@ public class EventResponseMapper {
 
         return switch (value.trim().toLowerCase()) {
             case "free", "gratuit", "gratuite" -> "FREE";
+            case "gratuit sous condition" -> "FREE_CONDITIONAL";
             default -> "PAID";
         };
     }

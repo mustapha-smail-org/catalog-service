@@ -20,8 +20,10 @@ import java.util.stream.IntStream;
 
 public final class EventSpecification {
 
+    // Conditionally-free events (e.g. free with reservation) count as free for
+    // the "Gratuit" filter and rail, but keep a distinct display category.
     private static final List<String> FREE_PRICE_TYPES =
-            List.of("free", "gratuit", "gratuite");
+            List.of("free", "gratuit", "gratuite", "gratuit sous condition");
 
     private static final List<String> PARIS_ZIPCODES =
             IntStream.rangeClosed(1, 20)

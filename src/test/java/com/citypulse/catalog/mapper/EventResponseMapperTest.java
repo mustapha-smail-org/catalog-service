@@ -124,6 +124,9 @@ class EventResponseMapperTest {
 
         event.getPricing().setPriceType("15 EUR");
         assertThat(mapper.toSummary(event).pricing()).isEqualTo("PAID");
+
+        event.getPricing().setPriceType("gratuit sous condition");
+        assertThat(mapper.toSummary(event).pricing()).isEqualTo("FREE_CONDITIONAL");
     }
 
     @Test

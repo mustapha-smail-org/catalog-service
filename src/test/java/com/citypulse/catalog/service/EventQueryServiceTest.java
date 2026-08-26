@@ -280,6 +280,25 @@ class EventQueryServiceTest {
                 .isInstanceOf(com.citypulse.catalog.exception.InvalidCursorException.class);
     }
 
+    @Test
+    void freePricingFilterIncludesConditionallyFreeEvents() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                filterableEvent("free-1", "Free", start, "75001", Set.of("Concerts"), "gratuit"),
+                filterableEvent("cond-1", "Conditional", start, "75001", Set.of("Concerts"), "gratuit sous condition"),
+                filterableEvent("paid-1", "Paid", start, "75001", Set.of("Concerts"), "12 EUR")));
+
+        CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
+                new EventSearchRequest(null, null, null, null, PricingFilter.FREE,
+                        null, null, null, null, 10, null));
+
+        assertThat(response.items()).extracting(EventSummaryResponse::id)
+                .containsExactlyInAnyOrder("free-1", "cond-1");
+        assertThat(response.items()).filteredOn(e -> e.id().equals("cond-1"))
+                .singleElement().extracting(EventSummaryResponse::pricing)
+                .isEqualTo("FREE_CONDITIONAL");
+    }
+
     private EventEntity ranked(String id, Double rankScore, Instant startDate) {
         EventEntity event = new EventEntity(id, id.toUpperCase(), startDate);
         event.setLocation(new EventLocationEmbeddable(
