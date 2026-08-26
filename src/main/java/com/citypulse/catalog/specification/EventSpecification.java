@@ -2,6 +2,7 @@ package com.citypulse.catalog.specification;
 
 import com.citypulse.catalog.dto.request.PricingFilter;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import com.citypulse.catalog.service.EventSearchCriteria;
 import com.citypulse.catalog.utils.DateRange;
@@ -20,8 +21,10 @@ import java.util.stream.IntStream;
 
 public final class EventSpecification {
 
+    // Conditionally-free events (e.g. free with reservation) count as free for
+    // the "Gratuit" filter and rail, but keep a distinct display category.
     private static final List<String> FREE_PRICE_TYPES =
-            List.of("free", "gratuit", "gratuite");
+            List.of("free", "gratuit", "gratuite", "gratuit sous condition");
 
     private static final List<String> PARIS_ZIPCODES =
             IntStream.rangeClosed(1, 20)
@@ -68,6 +71,12 @@ public final class EventSpecification {
             );
         }
 
+        if (hasText(criteria.environment())) {
+            specification = specification.and(
+                    hasEnvironment(criteria.environment())
+            );
+        }
+
         if (criteria.cursor() != null) {
             specification = specification.and(
                     afterCursor(criteria.cursor())
@@ -75,6 +84,12 @@ public final class EventSpecification {
         }
 
         return specification;
+    }
+
+    private static Specification<EventEntity> hasEnvironment(String environment) {
+        EventEnvironment value = EventEnvironment.valueOf(environment);
+        return (root, query, builder) ->
+                builder.equal(root.get("environment"), value);
     }
 
     public static Specification<EventEntity> hasCoordinates() {
@@ -299,6 +314,15 @@ public final class EventSpecification {
     private static Specification<EventEntity> afterCursor(
             EventSearchCriteria.CursorPosition cursor
     ) {
+        return switch (cursor.sort()) {
+            case START_DATE -> afterStartDateCursor(cursor);
+            case RELEVANCE -> afterRelevanceCursor(cursor);
+        };
+    }
+
+    private static Specification<EventEntity> afterStartDateCursor(
+            EventSearchCriteria.CursorPosition cursor
+    ) {
         return (root, query, builder) -> builder.or(
                 builder.greaterThan(
                         root.get("startDate"),
@@ -315,6 +339,36 @@ public final class EventSpecification {
                         )
                 )
         );
+    }
+
+    /**
+     * Keyset for the RELEVANCE order {@code rank_score DESC NULLS LAST, id ASC}.
+     * A row is "after" the cursor when it has a lower rank, sits in the NULL
+     * tail, or shares the cursor's rank with a greater id. When the cursor is
+     * already in the NULL tail, only later NULL-rank rows remain.
+     */
+    private static Specification<EventEntity> afterRelevanceCursor(
+            EventSearchCriteria.CursorPosition cursor
+    ) {
+        return (root, query, builder) -> {
+            Expression<Double> rank = root.get("rankScore");
+
+            if (cursor.rankScore() == null) {
+                return builder.and(
+                        builder.isNull(rank),
+                        builder.greaterThan(root.get("id"), cursor.eventId())
+                );
+            }
+
+            return builder.or(
+                    builder.lessThan(rank, cursor.rankScore()),
+                    builder.isNull(rank),
+                    builder.and(
+                            builder.equal(rank, cursor.rankScore()),
+                            builder.greaterThan(root.get("id"), cursor.eventId())
+                    )
+            );
+        };
     }
 
     private static boolean hasText(String value) {

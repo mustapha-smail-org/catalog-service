@@ -112,6 +112,20 @@ public class EventEntity {
     @Column(name = "environment", nullable = false, length = 10)
     private EventEnvironment environment = EventEnvironment.UNKNOWN;
 
+    @OneToOne(
+            mappedBy = "event",
+            fetch = FetchType.LAZY,
+            optional = true
+    )
+    private EventEnrichmentEntity enrichment;
+
+    /**
+     * Denormalised from {@code event_enrichment.rank_score} by the enrichment
+     * worker so the RELEVANCE sort needs no join. NULL while unenriched.
+     */
+    @Column(name = "rank_score")
+    private Double rankScore;
+
     @Column(name = "source_updated_at")
     private Instant sourceUpdatedAt;
 

@@ -23,6 +23,7 @@ public record EventSummaryResponse(
         String imageAlt,
         String imageCredit,
         OffsetDateTime sourceUpdatedAt,
-        String environment
+        String environment,
+        EventEnrichmentResponse enrichment
 ) {
 }

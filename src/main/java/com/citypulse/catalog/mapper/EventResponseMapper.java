@@ -48,7 +48,8 @@ public class EventResponseMapper {
                 event.getImageAlt(),
                 event.getImageCredit(),
                 parisTime(event.getSourceUpdatedAt()),
-                environmentName(event)
+                environmentName(event),
+                enrichment(event)
         );
     }
 
@@ -131,7 +132,8 @@ public class EventResponseMapper {
                                 )
                         )
                         .toList(),
-                environmentName(event)
+                environmentName(event),
+                enrichment(event)
         );
     }
 
@@ -205,6 +207,7 @@ public class EventResponseMapper {
 
         return switch (value.trim().toLowerCase()) {
             case "free", "gratuit", "gratuite" -> "FREE";
+            case "gratuit sous condition" -> "FREE_CONDITIONAL";
             default -> "PAID";
         };
     }
@@ -224,6 +227,25 @@ public class EventResponseMapper {
         }
 
         return Integer.parseInt(zipcode.substring(3));
+    }
+
+    private com.citypulse.catalog.dto.response.EventEnrichmentResponse
+            enrichment(EventEntity event) {
+        var source = event.getEnrichment();
+        if (source == null) {
+            return null;
+        }
+        return new com.citypulse.catalog.dto.response.EventEnrichmentResponse(
+                java.util.List.copyOf(source.getNormCategories()),
+                java.util.List.copyOf(source.getMoodAffinities()),
+                java.util.List.copyOf(source.getSocialContexts()),
+                java.util.List.copyOf(source.getSemanticTags()),
+                source.getEnergyLevel(),
+                source.getEnvironmentFallback(),
+                source.getUniquenessScore(),
+                source.getQualityScore(),
+                source.getRankScore()
+        );
     }
 
     private String environmentName(EventEntity event) {

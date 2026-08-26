@@ -35,6 +35,8 @@ class EventRepositoryTest {
     @Autowired
     private EventRepository repository;
     @Autowired
+    private EventEnrichmentRepository enrichmentRepository;
+    @Autowired
     private EntityManager entityManager;
 
     @DynamicPropertySource
@@ -180,9 +182,95 @@ class EventRepositoryTest {
 
     private List<String> idsMatching(DateRange range) {
         EventSearchCriteria criteria = new EventSearchCriteria(
-                range, null, null, null, null, null);
+                range, null, null, null, null, null, null);
         return repository.findAll(EventSpecification.matching(criteria))
                 .stream().map(EventEntity::getId).sorted().toList();
+    }
+
+    @Test
+    void shouldPersistAndReloadEnrichmentWithArrays() {
+        EventEntity event = new EventEntity(
+                "event-enriched", "Rooftop techno",
+                Instant.parse("2026-08-20T18:00:00Z"));
+        repository.saveAndFlush(event);
+
+        EventEnrichmentEntity enrichment = new EventEnrichmentEntity(event);
+        enrichment.setNormCategories(List.of("CLUBBING", "CONCERT"));
+        enrichment.setMoodAffinities(List.of("FESTIF", "UNDERGROUND"));
+        enrichment.setSocialContexts(List.of("ENTRE_AMIS"));
+        enrichment.setSemanticTags(List.of("rooftop", "techno"));
+        enrichment.setEnergyLevel("INTENSE");
+        enrichment.setUniquenessScore(72);
+        enrichment.setQualityScore(64);
+        enrichment.setEnrichmentModel("test-model");
+        enrichment.setEnrichmentVersion(1);
+        enrichment.setEnrichmentSourceVersion(Instant.parse("2026-08-13T09:00:00Z"));
+        enrichment.setEnrichedAt(Instant.parse("2026-08-14T09:00:00Z"));
+        enrichmentRepository.saveAndFlush(enrichment);
+        entityManager.clear();
+
+        EventEnrichmentEntity reloaded =
+                enrichmentRepository.findById("event-enriched").orElseThrow();
+
+        assertThat(reloaded.getNormCategories())
+                .containsExactly("CLUBBING", "CONCERT");
+        assertThat(reloaded.getMoodAffinities())
+                .containsExactly("FESTIF", "UNDERGROUND");
+        assertThat(reloaded.getSemanticTags()).containsExactly("rooftop", "techno");
+        assertThat(reloaded.getEnergyLevel()).isEqualTo("INTENSE");
+        assertThat(reloaded.getUniquenessScore()).isEqualTo(72);
+        assertThat(reloaded.getEnvironmentFallback()).isNull();
+        assertThat(reloaded.getEvent().getId()).isEqualTo("event-enriched");
+    }
+
+    @Test
+    void findIdsNeedingEnrichmentSelectsMissingStaleAndOutdated() {
+        Instant sourceV1 = Instant.parse("2026-08-13T09:00:00Z");
+
+        // needs: never enriched
+        EventEntity missing = new EventEntity("need-missing", "Missing", sourceV1);
+        missing.setSourceUpdatedAt(sourceV1);
+        // needs: enriched at an older prompt version
+        EventEntity oldVersion = new EventEntity("need-oldver", "Old version", sourceV1);
+        oldVersion.setSourceUpdatedAt(sourceV1);
+        // needs: source changed since it was enriched
+        EventEntity stale = new EventEntity("need-stale", "Stale source", sourceV1);
+        stale.setSourceUpdatedAt(Instant.parse("2026-08-20T09:00:00Z"));
+        // up to date: same version, source matches -> must NOT be selected
+        EventEntity current = new EventEntity("skip-current", "Current", sourceV1);
+        current.setSourceUpdatedAt(sourceV1);
+        repository.saveAllAndFlush(List.of(missing, oldVersion, stale, current));
+
+        enrichmentRepository.saveAllAndFlush(List.of(
+                enrichmentFor(oldVersion, 0, sourceV1),
+                enrichmentFor(stale, 1, sourceV1),
+                enrichmentFor(current, 1, sourceV1)));
+        entityManager.clear();
+
+        assertThat(repository.findIdsNeedingEnrichment(1, 50))
+                .containsExactlyInAnyOrder("need-missing", "need-oldver", "need-stale")
+                .doesNotContain("skip-current");
+    }
+
+    private EventEnrichmentEntity enrichmentFor(EventEntity event, int version, Instant sourceVersion) {
+        EventEnrichmentEntity e = new EventEnrichmentEntity(event);
+        e.setEnrichmentModel("test");
+        e.setEnrichmentVersion(version);
+        e.setEnrichmentSourceVersion(sourceVersion);
+        e.setEnrichedAt(Instant.parse("2026-08-14T09:00:00Z"));
+        return e;
+    }
+
+    @Test
+    void eventWithoutEnrichmentReportsNull() {
+        EventEntity event = new EventEntity(
+                "event-bare", "No enrichment yet",
+                Instant.parse("2026-08-20T18:00:00Z"));
+        repository.saveAndFlush(event);
+        entityManager.clear();
+
+        EventEntity reloaded = repository.findById("event-bare").orElseThrow();
+        assertThat(reloaded.getEnrichment()).isNull();
     }
 
     @Test

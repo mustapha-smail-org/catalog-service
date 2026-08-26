@@ -1,5 +1,6 @@
 package com.citypulse.catalog.dto.request;
 
 public enum EventSort {
-    START_DATE
+    START_DATE,
+    RELEVANCE
 }

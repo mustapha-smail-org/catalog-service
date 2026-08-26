@@ -33,3 +33,10 @@ eureka:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
+
+spring:
+  ai:
+    model:
+      chat: none
+    openai:
+      api-key: test-key

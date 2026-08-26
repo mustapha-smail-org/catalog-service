@@ -26,6 +26,14 @@
         <openapi.version>2.8.5</openapi.version>
         <springdoc-openapi.version>1.5</springdoc-openapi.version>
         <spring-cloud.version>2025.1.2</spring-cloud.version>
+        <spring-ai.version>2.0.1</spring-ai.version>
+        <!-- Infra with no meaningful unit test: the live LLM client (Spring AI
+             fluent chain), the @Scheduled trigger, and the @Configuration class. -->
+        <sonar.coverage.exclusions>
+            **/enrichment/SpringAiEnrichmentClient.java,
+            **/enrichment/EnrichmentScheduler.java,
+            **/enrichment/EnrichmentConfig.java
+        </sonar.coverage.exclusions>
     </properties>
 
     <dependencyManagement>
@@ -34,6 +42,13 @@
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -64,6 +79,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

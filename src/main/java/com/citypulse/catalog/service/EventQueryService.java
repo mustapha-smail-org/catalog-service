@@ -2,6 +2,8 @@ package com.citypulse.catalog.service;
 
 import com.citypulse.catalog.config.CachingConfig;
 import com.citypulse.catalog.dto.request.EventSearchRequest;
+import com.citypulse.catalog.dto.request.EventSort;
+import com.citypulse.catalog.exception.InvalidCursorException;
 import com.citypulse.catalog.dto.response.CursorPageResponse;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
 import com.citypulse.catalog.dto.response.EventMapMarkerResponse;
@@ -77,8 +79,8 @@ public class EventQueryService {
         // Drill-down faceting: each dimension's counts honour every other active
         // filter but drop its own selection, so picking one category still shows
         // its siblings as addable options. Facets ignore the cursor (whole match set).
-        EventSearchCriteria withoutCategories = new EventSearchCriteria(dateRange, List.of(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), null);
-        EventSearchCriteria withoutArrondissements = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), List.of(), normalize(request.query()), null);
+        EventSearchCriteria withoutCategories = new EventSearchCriteria(dateRange, List.of(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), normalize(request.environment()), null);
+        EventSearchCriteria withoutArrondissements = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), List.of(), normalize(request.query()), normalize(request.environment()), null);
 
         return new EventFacetsResponse(
                 eventFacetRepository.countByCategory(withoutCategories),
@@ -97,7 +99,8 @@ public class EventQueryService {
 
         DateRange dateRange = resolveDateRange(request);
 
-        EventSearchCriteria criteria = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), cursorCodec.decode(request.cursor()));
+        EventSort sort = request.effectiveSort();
+        EventSearchCriteria criteria = new EventSearchCriteria(dateRange, request.effectiveCategories(), request.effectivePricing(), request.effectiveArrondissements(), normalize(request.query()), normalize(request.environment()), decodeCursor(request.cursor(), sort));
 
         Specification<EventEntity> specification = EventSpecification.matching(criteria);
 
@@ -105,7 +108,7 @@ public class EventQueryService {
             specification = specification.and(EventSpecification.hasCoordinates());
         }
 
-        PageRequest pageRequest = PageRequest.of(0, limit + 1, Sort.by(Sort.Order.asc("startDate"), Sort.Order.asc("id")));
+        PageRequest pageRequest = PageRequest.of(0, limit + 1, sortFor(sort));
 
         List<EventEntity> content = eventRepository.findAll(specification, pageRequest).getContent();
 
@@ -116,12 +119,38 @@ public class EventQueryService {
         String nextCursor = null;
 
         if (hasNext && !selected.isEmpty()) {
-            EventEntity last = selected.getLast();
-
-            nextCursor = cursorCodec.encode(last.getStartDate(), last.getId());
+            nextCursor = cursorCodec.encode(cursorFor(sort, selected.getLast()));
         }
 
         return new CursorPageResponse<>(selected.stream().map(responseMapper).toList(), nextCursor, hasNext);
+    }
+
+    private Sort sortFor(EventSort sort) {
+        return switch (sort) {
+            case START_DATE -> Sort.by(Sort.Order.asc("startDate"), Sort.Order.asc("id"));
+            case RELEVANCE -> Sort.by(
+                    new Sort.Order(Sort.Direction.DESC, "rankScore").nullsLast(),
+                    Sort.Order.asc("id"));
+        };
+    }
+
+    private EventSearchCriteria.CursorPosition cursorFor(EventSort sort, EventEntity last) {
+        return switch (sort) {
+            case START_DATE -> new EventSearchCriteria.CursorPosition(
+                    sort, last.getStartDate(), null, last.getId());
+            case RELEVANCE -> new EventSearchCriteria.CursorPosition(
+                    sort, null, last.getRankScore(), last.getId());
+        };
+    }
+
+    private EventSearchCriteria.CursorPosition decodeCursor(String cursor, EventSort sort) {
+        EventSearchCriteria.CursorPosition position = cursorCodec.decode(cursor);
+        if (position != null && position.sort() != sort) {
+            // A cursor issued for one sort cannot be replayed under another.
+            throw new InvalidCursorException(
+                    new IllegalArgumentException("cursor sort mismatch"));
+        }
+        return position;
     }
 
     private String normalize(String value) {

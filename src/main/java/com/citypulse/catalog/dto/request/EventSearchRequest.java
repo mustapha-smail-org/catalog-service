@@ -56,7 +56,13 @@ public record EventSearchRequest(
         @Max(100)
         Integer limit,
 
-        String cursor
+        String cursor,
+
+        @Pattern(
+                regexp = "^(?:INDOOR|OUTDOOR)$",
+                message = "environment must be INDOOR or OUTDOOR"
+        )
+        String environment
 ) {
 
     public List<String> effectiveCategories() {

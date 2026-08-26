@@ -9,6 +9,7 @@ import com.citypulse.catalog.dto.response.EventSummaryResponse;
 import com.citypulse.catalog.dto.response.FacetCountResponse;
 import com.citypulse.catalog.entity.EventAccessibilityEmbeddable;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.catalog.entity.EventLocationEmbeddable;
 import com.citypulse.catalog.entity.EventPricingEmbeddable;
 import com.citypulse.catalog.repository.EventRepository;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -93,7 +95,7 @@ class EventQueryServiceTest {
         eventRepository.saveAndFlush(event);
 
         CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
-                new EventSearchRequest(null, null, null, null, null, null, null, null, null, 10, null)
+                new EventSearchRequest(null, null, null, null, null, null, null, null, null, 10, null, null)
         );
 
         String json = objectMapper.writeValueAsString(response);
@@ -135,7 +137,7 @@ class EventQueryServiceTest {
         CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
                 new EventSearchRequest(
                         null, null, List.of("Concerts", "Theatre"), null, null,
-                        null, null, null, null, 50, null)
+                        null, null, null, null, 50, null, null)
         );
 
         assertThat(response.items()).extracting(EventSummaryResponse::title)
@@ -157,7 +159,7 @@ class EventQueryServiceTest {
         CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
                 new EventSearchRequest(
                         null, null, null, null, null,
-                        List.of("1", "OUTSIDE_PARIS"), null, null, null, 50, null)
+                        List.of("1", "OUTSIDE_PARIS"), null, null, null, 50, null, null)
         );
 
         assertThat(response.items()).extracting(EventSummaryResponse::title)
@@ -176,7 +178,7 @@ class EventQueryServiceTest {
         CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
                 new EventSearchRequest(
                         null, LocalDate.of(2026, 9, 1), null, null, null,
-                        null, null, null, null, 50, null)
+                        null, null, null, null, 50, null, null)
         );
 
         assertThat(response.items()).extracting(EventSummaryResponse::title)
@@ -201,7 +203,7 @@ class EventQueryServiceTest {
         EventFacetsResponse facets = eventQueryService.findFacets(
                 new EventSearchRequest(
                         null, null, List.of("Concerts"), null, PricingFilter.FREE,
-                        null, null, null, null, null, null)
+                        null, null, null, null, null, null, null)
         );
 
         assertThat(facets.categories()).containsExactly(
@@ -234,7 +236,7 @@ class EventQueryServiceTest {
 
         EventFacetsResponse facets = eventQueryService.findFacets(
                 new EventSearchRequest(
-                        null, null, null, null, null, null, null, null, null, null, null)
+                        null, null, null, null, null, null, null, null, null, null, null, null)
         );
 
         assertThat(facets.arrondissements()).containsExactly(
@@ -243,6 +245,116 @@ class EventQueryServiceTest {
                 new FacetCountResponse("OUTSIDE_PARIS", 1L),
                 new FacetCountResponse("UNKNOWN", 1L)
         );
+    }
+
+    @Test
+    void relevanceSortRanksByScoreNullsLastAndPaginatesStably() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                ranked("evt-a", 0.9, start), ranked("evt-b", 0.5, start),
+                ranked("evt-d", 0.5, start), ranked("evt-c", null, start)));
+
+        // Order: 0.9, then the 0.5 tie by id asc (b, d), then the null tail (c).
+        CursorPageResponse<EventSummaryResponse> page1 = findRelevance(2, null);
+        assertThat(idsOf(page1)).containsExactly("evt-a", "evt-b");
+        assertThat(page1.hasNext()).isTrue();
+
+        CursorPageResponse<EventSummaryResponse> page2 =
+                findRelevance(2, page1.nextCursor());
+        assertThat(idsOf(page2)).containsExactly("evt-d", "evt-c");
+        assertThat(page2.hasNext()).isFalse();
+    }
+
+    @Test
+    void relevancePaginatesThroughTheUnenrichedTail() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                ranked("evt-a", 0.9, start), ranked("evt-b", null, start),
+                ranked("evt-c", null, start)));
+
+        CursorPageResponse<EventSummaryResponse> p1 = findRelevance(1, null);
+        assertThat(idsOf(p1)).containsExactly("evt-a");
+
+        // Page 2 enters the null-rank tail; its cursor therefore carries a null
+        // rank, exercising the null-cursor branch of the keyset on page 3.
+        CursorPageResponse<EventSummaryResponse> p2 = findRelevance(1, p1.nextCursor());
+        assertThat(idsOf(p2)).containsExactly("evt-b");
+
+        CursorPageResponse<EventSummaryResponse> p3 = findRelevance(1, p2.nextCursor());
+        assertThat(idsOf(p3)).containsExactly("evt-c");
+        assertThat(p3.hasNext()).isFalse();
+    }
+
+    @Test
+    void rejectsCursorReplayedUnderADifferentSort() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                ranked("evt-a", 0.9, start), ranked("evt-b", 0.5, start)));
+
+        CursorPageResponse<EventSummaryResponse> startDatePage =
+                eventQueryService.findEvents(new EventSearchRequest(
+                        null, null, null, null, null, null, null, null,
+                        com.citypulse.catalog.dto.request.EventSort.START_DATE, 1, null, null));
+        String startDateCursor = startDatePage.nextCursor();
+
+        assertThatThrownBy(() -> findRelevance(1, startDateCursor))
+                .isInstanceOf(com.citypulse.catalog.exception.InvalidCursorException.class);
+    }
+
+    @Test
+    void freePricingFilterIncludesConditionallyFreeEvents() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                filterableEvent("free-1", "Free", start, "75001", Set.of("Concerts"), "gratuit"),
+                filterableEvent("cond-1", "Conditional", start, "75001", Set.of("Concerts"), "gratuit sous condition"),
+                filterableEvent("paid-1", "Paid", start, "75001", Set.of("Concerts"), "12 EUR")));
+
+        CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
+                new EventSearchRequest(null, null, null, null, PricingFilter.FREE,
+                        null, null, null, null, 10, null, null));
+
+        assertThat(response.items()).extracting(EventSummaryResponse::id)
+                .containsExactlyInAnyOrder("free-1", "cond-1");
+        assertThat(response.items()).filteredOn(e -> e.id().equals("cond-1"))
+                .singleElement().extracting(EventSummaryResponse::pricing)
+                .isEqualTo("FREE_CONDITIONAL");
+    }
+
+    @Test
+    void environmentFilterMatchesOnlyTheRequestedSetting() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        EventEntity indoor = filterableEvent("env-indoor", "Indoor", start, "75001", Set.of("Concerts"));
+        indoor.setEnvironment(EventEnvironment.INDOOR);
+        EventEntity outdoor = filterableEvent("env-outdoor", "Outdoor", start, "75001", Set.of("Concerts"));
+        outdoor.setEnvironment(EventEnvironment.OUTDOOR);
+        eventRepository.saveAll(List.of(indoor, outdoor));
+
+        CursorPageResponse<EventSummaryResponse> response = eventQueryService.findEvents(
+                new EventSearchRequest(null, null, null, null, null, null, null, null,
+                        null, 10, null, "OUTDOOR"));
+
+        assertThat(response.items()).extracting(EventSummaryResponse::id)
+                .containsExactly("env-outdoor");
+    }
+
+    private EventEntity ranked(String id, Double rankScore, Instant startDate) {
+        EventEntity event = new EventEntity(id, id.toUpperCase(), startDate);
+        event.setLocation(new EventLocationEmbeddable(
+                "Test venue", "1 Test street", "75001", "Paris", 48.8566, 2.3522));
+        event.setPricing(new EventPricingEmbeddable(
+                "gratuit", "Detail", "libre", null, null));
+        event.setRankScore(rankScore);
+        return event;
+    }
+
+    private CursorPageResponse<EventSummaryResponse> findRelevance(int limit, String cursor) {
+        return eventQueryService.findEvents(new EventSearchRequest(
+                null, null, null, null, null, null, null, null,
+                com.citypulse.catalog.dto.request.EventSort.RELEVANCE, limit, cursor, null));
+    }
+
+    private List<String> idsOf(CursorPageResponse<EventSummaryResponse> page) {
+        return page.items().stream().map(EventSummaryResponse::id).toList();
     }
 
     private EventEntity filterableEvent(

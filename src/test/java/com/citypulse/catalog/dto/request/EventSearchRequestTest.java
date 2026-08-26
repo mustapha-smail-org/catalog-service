@@ -17,7 +17,7 @@ class EventSearchRequestTest {
         return new EventSearchRequest(
                 null, null, categories, category, null,
                 arrondissements, arrondissement, null, null, null, null
-        );
+        , null);
     }
 
     @Test
