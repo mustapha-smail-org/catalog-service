@@ -2,12 +2,15 @@ package com.citypulse.catalog.specification;
 
 import com.citypulse.catalog.dto.request.PricingFilter;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import com.citypulse.catalog.service.EventSearchCriteria;
 import com.citypulse.catalog.utils.DateRange;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
@@ -85,21 +88,67 @@ public final class EventSpecification {
         );
     }
 
+    /**
+     * A period matches an event when one of its individual occurrences overlaps
+     * the range (so a weekly event only shows on the days it actually runs).
+     * Events with no stored occurrences fall back to the event-level
+     * start/end envelope, since single-shot events carry their schedule there.
+     */
     private static Specification<EventEntity> overlaps(DateRange range) {
         return (root, query, builder) -> {
-            Expression<Instant> effectiveEnd =
+            Subquery<Long> overlappingOccurrence =
+                    query.subquery(Long.class);
+            Root<EventOccurrenceEntity> occurrence =
+                    overlappingOccurrence.from(EventOccurrenceEntity.class);
+            Expression<Instant> occurrenceEnd =
+                    builder.<Instant>coalesce()
+                            .value(occurrence.get("end"))
+                            .value(occurrence.get("start"));
+            overlappingOccurrence.select(builder.literal(1L)).where(
+                    builder.equal(
+                            occurrence.get("event").get("id"),
+                            root.get("id")
+                    ),
+                    builder.lessThan(
+                            occurrence.get("start"),
+                            range.endExclusive()
+                    ),
+                    builder.greaterThanOrEqualTo(
+                            occurrenceEnd,
+                            range.startInclusive()
+                    )
+            );
+
+            Subquery<Long> anyOccurrence = query.subquery(Long.class);
+            Root<EventOccurrenceEntity> existing =
+                    anyOccurrence.from(EventOccurrenceEntity.class);
+            anyOccurrence.select(builder.literal(1L)).where(
+                    builder.equal(
+                            existing.get("event").get("id"),
+                            root.get("id")
+                    )
+            );
+
+            Expression<Instant> envelopeEnd =
                     builder.<Instant>coalesce()
                             .value(root.get("endDate"))
                             .value(root.get("startDate"));
-
-            return builder.and(
+            Predicate envelopeOverlap = builder.and(
                     builder.lessThan(
                             root.get("startDate"),
                             range.endExclusive()
                     ),
                     builder.greaterThanOrEqualTo(
-                            effectiveEnd,
+                            envelopeEnd,
                             range.startInclusive()
+                    )
+            );
+
+            return builder.or(
+                    builder.exists(overlappingOccurrence),
+                    builder.and(
+                            builder.not(builder.exists(anyOccurrence)),
+                            envelopeOverlap
                     )
             );
         };
