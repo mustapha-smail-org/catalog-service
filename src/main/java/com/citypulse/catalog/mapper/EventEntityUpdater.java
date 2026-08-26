@@ -21,6 +21,7 @@ public class EventEntityUpdater {
         target.setTransport(source.getTransport());
         target.setStartDate(source.getStartDate());
         target.setEndDate(source.getEndDate());
+        target.setEnvironment(source.getEnvironment());
 
         if (target.getSlug() == null || target.getSlug().isBlank()) {
             target.setSlug(source.getSlug());

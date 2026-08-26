@@ -22,6 +22,7 @@ public record EventSummaryResponse(
         String imageUrl,
         String imageAlt,
         String imageCredit,
-        OffsetDateTime sourceUpdatedAt
+        OffsetDateTime sourceUpdatedAt,
+        String environment
 ) {
 }

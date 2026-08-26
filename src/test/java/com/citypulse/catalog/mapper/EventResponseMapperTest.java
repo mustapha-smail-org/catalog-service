@@ -3,6 +3,7 @@ package com.citypulse.catalog.mapper;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
 import com.citypulse.catalog.entity.EventAccessibilityEmbeddable;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.catalog.entity.EventLocationEmbeddable;
 import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import com.citypulse.catalog.entity.EventPricingEmbeddable;
@@ -40,6 +41,7 @@ class EventResponseMapperTest {
         assertThat(result.endAt()).isNull();
         assertThat(result.displayStartAt()).isEqualTo(result.startAt());
         assertThat(result.ongoing()).isFalse();
+        assertThat(result.environment()).isEqualTo("OUTDOOR");
     }
 
     @Test
@@ -79,6 +81,7 @@ class EventResponseMapperTest {
                         Instant.parse("2026-08-22T18:00:00Z").atOffset(ZoneOffset.ofHours(2))
                 );
         assertThat(result.occurrences().getLast().end()).isNull();
+        assertThat(result.environment()).isEqualTo("OUTDOOR");
     }
 
     @Test
@@ -151,6 +154,7 @@ class EventResponseMapperTest {
         event.setAccessibility(new EventAccessibilityEmbeddable(true, false, true, "LSF", null));
         event.setPricing(new EventPricingEmbeddable("gratuit", "Free", "booking", "url", "Book"));
         event.replaceCategories(Set.of("Outdoor", "Cinema"));
+        event.setEnvironment(EventEnvironment.OUTDOOR);
         return event;
     }
 }

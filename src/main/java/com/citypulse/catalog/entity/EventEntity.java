@@ -108,6 +108,10 @@ public class EventEntity {
     private List<EventOccurrenceEntity> occurrences =
             new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "environment", nullable = false, length = 10)
+    private EventEnvironment environment = EventEnvironment.UNKNOWN;
+
     @Column(name = "source_updated_at")
     private Instant sourceUpdatedAt;
 

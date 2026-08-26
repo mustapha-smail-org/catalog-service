@@ -47,7 +47,8 @@ public class EventResponseMapper {
                 event.getImageUrl(),
                 event.getImageAlt(),
                 event.getImageCredit(),
-                parisTime(event.getSourceUpdatedAt())
+                parisTime(event.getSourceUpdatedAt()),
+                environmentName(event)
         );
     }
 
@@ -129,7 +130,8 @@ public class EventResponseMapper {
                                         parisTime(occurrence.getEnd())
                                 )
                         )
-                        .toList()
+                        .toList(),
+                environmentName(event)
         );
     }
 
@@ -222,6 +224,13 @@ public class EventResponseMapper {
         }
 
         return Integer.parseInt(zipcode.substring(3));
+    }
+
+    private String environmentName(EventEntity event) {
+        var environment = event.getEnvironment();
+        return (environment == null
+                ? com.citypulse.catalog.entity.EventEnvironment.UNKNOWN
+                : environment).name();
     }
 
     private OffsetDateTime parisTime(Instant value) {
