@@ -3,10 +3,13 @@ package com.citypulse.catalog.mapper;
 import com.citypulse.catalog.dto.response.EventDetailResponse;
 import com.citypulse.catalog.entity.EventAccessibilityEmbeddable;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnrichmentEntity;
 import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.catalog.entity.EventLocationEmbeddable;
 import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import com.citypulse.catalog.entity.EventPricingEmbeddable;
+
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -42,6 +45,35 @@ class EventResponseMapperTest {
         assertThat(result.displayStartAt()).isEqualTo(result.startAt());
         assertThat(result.ongoing()).isFalse();
         assertThat(result.environment()).isEqualTo("OUTDOOR");
+        assertThat(result.enrichment()).isNull();
+    }
+
+    @Test
+    void shouldMapEnrichmentBlockWhenPresent() {
+        EventEntity event = event();
+        EventEnrichmentEntity enrichment = new EventEnrichmentEntity(event);
+        enrichment.setNormCategories(List.of("CINEMA"));
+        enrichment.setMoodAffinities(List.of("CHILL", "DECOUVERTE"));
+        enrichment.setSocialContexts(List.of("COUPLE"));
+        enrichment.setSemanticTags(List.of("plein air", "nocturne"));
+        enrichment.setEnergyLevel("CALME");
+        enrichment.setUniquenessScore(58);
+        enrichment.setQualityScore(71);
+        enrichment.setRankScore(0.42);
+        event.setEnrichment(enrichment);
+
+        var summary = mapper.toSummary(event).enrichment();
+        assertThat(summary).isNotNull();
+        assertThat(summary.categories()).containsExactly("CINEMA");
+        assertThat(summary.moodAffinities()).containsExactly("CHILL", "DECOUVERTE");
+        assertThat(summary.socialContexts()).containsExactly("COUPLE");
+        assertThat(summary.energyLevel()).isEqualTo("CALME");
+        assertThat(summary.uniquenessScore()).isEqualTo(58);
+        assertThat(summary.qualityScore()).isEqualTo(71);
+        assertThat(summary.rankScore()).isEqualTo(0.42);
+
+        assertThat(mapper.toDetail(event).enrichment().semanticTags())
+                .containsExactly("plein air", "nocturne");
     }
 
     @Test
