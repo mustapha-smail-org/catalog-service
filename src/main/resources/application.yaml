@@ -41,6 +41,18 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  ai:
+    # Chat autoconfig is off unless a deploy opts in (prod enrichment box sets
+    # this to "openai" alongside app.enrichment.enabled). Keeps every other
+    # deploy and the test context free of any model wiring or API key.
+    model:
+      chat: ${AI_CHAT_MODEL:none}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${AI_OPENAI_MODEL:gpt-5.6-luna}
+
 log:
   level:
     root: INFO
@@ -80,6 +92,17 @@ app:
     enabled: ${CACHE_ENABLED:true}
     ttl: ${CACHE_TTL:30m}
     max-size: ${CACHE_MAX_SIZE:1000}
+  enrichment:
+    # Whole worker off unless a deploy opts in (needs OPENAI_API_KEY and
+    # spring.ai.model.chat=openai). Model here is recorded on each row.
+    enabled: ${ENRICHMENT_ENABLED:false}
+    dry-run: ${ENRICHMENT_DRY_RUN:false}
+    batch-size: ${ENRICHMENT_BATCH_SIZE:50}
+    max-retries: ${ENRICHMENT_MAX_RETRIES:2}
+    prompt-version: ${ENRICHMENT_PROMPT_VERSION:1}
+    model: ${ENRICHMENT_MODEL:gpt-5.6-luna}
+    interval-ms: ${ENRICHMENT_INTERVAL_MS:300000}
+    initial-delay-ms: ${ENRICHMENT_INITIAL_DELAY_MS:60000}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     username: ${KAFKA_USERNAME}
