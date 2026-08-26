@@ -35,6 +35,7 @@ public class EventAvroMapper {
         event.setImageCredit(source.getImageCredit());
         event.setTransport(source.getTransport());
         event.setEndDate(source.getEndDate());
+        event.setEnvironment(EventEnvironment.fromValue(source.getEnvironment()));
         event.setSourceUpdatedAt(source.getSourceUpdatedAt());
 
         event.setLocation(mapLocation(source.getLocation()));

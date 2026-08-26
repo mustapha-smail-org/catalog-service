@@ -26,7 +26,8 @@ public record EventDetailResponse(
         Location location,
         Accessibility accessibility,
         Pricing pricing,
-        List<Occurrence> occurrences
+        List<Occurrence> occurrences,
+        String environment
 ) {
 
     public record Location(

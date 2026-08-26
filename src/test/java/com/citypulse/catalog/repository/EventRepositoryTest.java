@@ -1,6 +1,9 @@
 package com.citypulse.catalog.repository;
 
 import com.citypulse.catalog.entity.*;
+import com.citypulse.catalog.service.EventSearchCriteria;
+import com.citypulse.catalog.specification.EventSpecification;
+import com.citypulse.catalog.utils.DateRange;
 import jakarta.persistence.EntityManager;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
@@ -119,6 +122,67 @@ class EventRepositoryTest {
         repository.saveAllAndFlush(List.of(first, second));
 
         assertThat(repository.findDistinctCategories()).containsExactly("Cinema", "Music", "Outdoor");
+    }
+
+    @Test
+    void periodShouldMatchOccurrenceDaysNotTheWholeEnvelope() {
+        // Weekly event running only on Fridays 06/13/20 March 2026; its
+        // envelope spans all three weeks, but it must only match on Fridays.
+        EventEntity weekly = new EventEntity(
+                "weekly-friday", "Friday concert",
+                Instant.parse("2026-03-06T18:00:00Z")
+        );
+        weekly.setEndDate(Instant.parse("2026-03-20T20:00:00Z"));
+        weekly.addOccurrence(new EventOccurrenceEntity(
+                Instant.parse("2026-03-06T18:00:00Z"),
+                Instant.parse("2026-03-06T20:00:00Z")));
+        weekly.addOccurrence(new EventOccurrenceEntity(
+                Instant.parse("2026-03-13T18:00:00Z"),
+                Instant.parse("2026-03-13T20:00:00Z")));
+        weekly.addOccurrence(new EventOccurrenceEntity(
+                Instant.parse("2026-03-20T18:00:00Z"),
+                Instant.parse("2026-03-20T20:00:00Z")));
+
+        // Single-shot event on Tuesday 10 March with no stored occurrences:
+        // must fall back to its start/end envelope.
+        EventEntity oneShot = new EventEntity(
+                "one-shot-tuesday", "Tuesday talk",
+                Instant.parse("2026-03-10T19:00:00Z")
+        );
+        oneShot.setEndDate(Instant.parse("2026-03-10T21:00:00Z"));
+
+        repository.saveAllAndFlush(List.of(weekly, oneShot));
+        entityManager.clear();
+
+        // Tuesday 10 March: weekly has no occurrence, only the one-shot matches.
+        assertThat(idsMatching(day("2026-03-10")))
+                .containsExactly("one-shot-tuesday");
+
+        // Friday 13 March: the weekly occurrence matches; the one-shot does not.
+        assertThat(idsMatching(day("2026-03-13")))
+                .containsExactly("weekly-friday");
+
+        // A range spanning all three Fridays must return the weekly event
+        // exactly once (EXISTS, not a row-multiplying join) alongside the
+        // one-shot, whose envelope also falls in the window.
+        DateRange wholeSpan = new DateRange(
+                Instant.parse("2026-03-06T00:00:00Z"),
+                Instant.parse("2026-03-21T00:00:00Z"));
+        assertThat(idsMatching(wholeSpan))
+                .containsExactly("one-shot-tuesday", "weekly-friday");
+    }
+
+    private DateRange day(String isoDate) {
+        Instant start = java.time.LocalDate.parse(isoDate)
+                .atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        return new DateRange(start, start.plus(java.time.Duration.ofDays(1)));
+    }
+
+    private List<String> idsMatching(DateRange range) {
+        EventSearchCriteria criteria = new EventSearchCriteria(
+                range, null, null, null, null, null);
+        return repository.findAll(EventSpecification.matching(criteria))
+                .stream().map(EventEntity::getId).sorted().toList();
     }
 
     @Test

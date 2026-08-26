@@ -1,6 +1,7 @@
 package com.citypulse.catalog.mapper;
 
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.events.avro.EventAccessibilityAvro;
 import com.citypulse.events.avro.EventAvro;
 import com.citypulse.events.avro.EventLocationAvro;
@@ -51,6 +52,7 @@ class EventAvroMapperTest {
                 .extracting(occurrence -> occurrence.getStart())
                 .containsExactly(Instant.parse("2026-08-20T18:00:00Z"));
         assertThat(result.getOccurrences().getFirst().getEvent()).isSameAs(result);
+        assertThat(result.getEnvironment()).isEqualTo(EventEnvironment.OUTDOOR);
     }
 
     @Test
@@ -63,6 +65,16 @@ class EventAvroMapperTest {
 
         assertThat(result.getCategories()).isEmpty();
         assertThat(result.getOccurrences()).isEmpty();
+    }
+
+    @Test
+    void shouldFallBackToUnknownForUnrecognisedEnvironment() {
+        EventAvro source = completeEvent();
+        source.setEnvironment("somewhere-else");
+
+        EventEntity result = mapper.toEntity(source);
+
+        assertThat(result.getEnvironment()).isEqualTo(EventEnvironment.UNKNOWN);
     }
 
     @Test
@@ -98,6 +110,7 @@ class EventAvroMapperTest {
                 .setImageAlt("People watching a movie outside")
                 .setImageCredit("City of Paris")
                 .setTransport("Metro 1")
+                .setEnvironment("OUTDOOR")
                 .setStartDate(Instant.parse("2026-08-20T18:00:00Z"))
                 .setEndDate(Instant.parse("2026-08-20T21:00:00Z"))
                 .setLocation(EventLocationAvro.newBuilder()

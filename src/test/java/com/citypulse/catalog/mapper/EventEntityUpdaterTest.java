@@ -2,6 +2,7 @@ package com.citypulse.catalog.mapper;
 
 import com.citypulse.catalog.entity.EventAccessibilityEmbeddable;
 import com.citypulse.catalog.entity.EventEntity;
+import com.citypulse.catalog.entity.EventEnvironment;
 import com.citypulse.catalog.entity.EventLocationEmbeddable;
 import com.citypulse.catalog.entity.EventOccurrenceEntity;
 import com.citypulse.catalog.entity.EventPricingEmbeddable;
@@ -35,6 +36,7 @@ class EventEntityUpdaterTest {
         source.setImageAlt("New image alt");
         source.setImageCredit("Photographer");
         source.setTransport("Metro 3");
+        source.setEnvironment(EventEnvironment.INDOOR);
         source.setEndDate(Instant.parse("2026-08-20T20:00:00Z"));
         source.setSourceUpdatedAt(Instant.parse("2026-08-13T10:00:00Z"));
         source.setLocation(new EventLocationEmbeddable("Venue", "Street", "75003", "Paris", 1.0, 2.0));
@@ -58,6 +60,7 @@ class EventEntityUpdaterTest {
         assertThat(target.getImageAlt()).isEqualTo("New image alt");
         assertThat(target.getImageCredit()).isEqualTo("Photographer");
         assertThat(target.getTransport()).isEqualTo("Metro 3");
+        assertThat(target.getEnvironment()).isEqualTo(EventEnvironment.INDOOR);
         assertThat(target.getStartDate()).isEqualTo(source.getStartDate());
         assertThat(target.getEndDate()).isEqualTo(source.getEndDate());
         assertThat(target.getLocation()).isSameAs(source.getLocation());

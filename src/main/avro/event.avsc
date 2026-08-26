@@ -281,6 +281,11 @@
         "null",
         "string"
       ]
+    },
+    {
+      "default": "UNKNOWN",
+      "name": "environment",
+      "type": "string"
     }
   ],
   "name": "EventAvro",
