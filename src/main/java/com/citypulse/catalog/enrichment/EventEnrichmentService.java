@@ -124,14 +124,19 @@ public class EventEnrichmentService {
         entity.setEnvironmentFallback(result.environmentFallback());
         entity.setUniquenessScore(result.uniquenessScore());
         entity.setQualityScore(result.qualityScore());
-        entity.setRankScore(EnrichmentRankScorer.score(
-                result.uniquenessScore(), result.qualityScore()));
+        double rankScore = EnrichmentRankScorer.score(
+                result.uniquenessScore(), result.qualityScore());
+        entity.setRankScore(rankScore);
         entity.setEnrichmentModel(properties.model());
         entity.setEnrichmentVersion(properties.promptVersion());
         entity.setEnrichmentSourceVersion(event.getSourceUpdatedAt());
         entity.setEnrichedAt(clock.instant());
 
         enrichmentRepository.save(entity);
+
+        // Denormalise onto the event so the RELEVANCE sort avoids a join.
+        event.setRankScore(rankScore);
+        eventRepository.save(event);
     }
 
     private EnrichmentInput toInput(EventEntity event) {

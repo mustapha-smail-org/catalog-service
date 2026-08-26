@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -243,6 +244,60 @@ class EventQueryServiceTest {
                 new FacetCountResponse("OUTSIDE_PARIS", 1L),
                 new FacetCountResponse("UNKNOWN", 1L)
         );
+    }
+
+    @Test
+    void relevanceSortRanksByScoreNullsLastAndPaginatesStably() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                ranked("evt-a", 0.9, start), ranked("evt-b", 0.5, start),
+                ranked("evt-d", 0.5, start), ranked("evt-c", null, start)));
+
+        // Order: 0.9, then the 0.5 tie by id asc (b, d), then the null tail (c).
+        CursorPageResponse<EventSummaryResponse> page1 = findRelevance(2, null);
+        assertThat(idsOf(page1)).containsExactly("evt-a", "evt-b");
+        assertThat(page1.hasNext()).isTrue();
+
+        CursorPageResponse<EventSummaryResponse> page2 =
+                findRelevance(2, page1.nextCursor());
+        assertThat(idsOf(page2)).containsExactly("evt-d", "evt-c");
+        assertThat(page2.hasNext()).isFalse();
+    }
+
+    @Test
+    void rejectsCursorReplayedUnderADifferentSort() {
+        Instant start = Instant.parse("2026-09-01T18:00:00Z");
+        eventRepository.saveAll(List.of(
+                ranked("evt-a", 0.9, start), ranked("evt-b", 0.5, start)));
+
+        CursorPageResponse<EventSummaryResponse> startDatePage =
+                eventQueryService.findEvents(new EventSearchRequest(
+                        null, null, null, null, null, null, null, null,
+                        com.citypulse.catalog.dto.request.EventSort.START_DATE, 1, null));
+        String startDateCursor = startDatePage.nextCursor();
+
+        assertThatThrownBy(() -> findRelevance(1, startDateCursor))
+                .isInstanceOf(com.citypulse.catalog.exception.InvalidCursorException.class);
+    }
+
+    private EventEntity ranked(String id, Double rankScore, Instant startDate) {
+        EventEntity event = new EventEntity(id, id.toUpperCase(), startDate);
+        event.setLocation(new EventLocationEmbeddable(
+                "Test venue", "1 Test street", "75001", "Paris", 48.8566, 2.3522));
+        event.setPricing(new EventPricingEmbeddable(
+                "gratuit", "Detail", "libre", null, null));
+        event.setRankScore(rankScore);
+        return event;
+    }
+
+    private CursorPageResponse<EventSummaryResponse> findRelevance(int limit, String cursor) {
+        return eventQueryService.findEvents(new EventSearchRequest(
+                null, null, null, null, null, null, null, null,
+                com.citypulse.catalog.dto.request.EventSort.RELEVANCE, limit, cursor));
+    }
+
+    private List<String> idsOf(CursorPageResponse<EventSummaryResponse> page) {
+        return page.items().stream().map(EventSummaryResponse::id).toList();
     }
 
     private EventEntity filterableEvent(

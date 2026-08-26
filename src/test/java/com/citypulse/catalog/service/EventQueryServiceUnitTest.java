@@ -75,7 +75,7 @@ class EventQueryServiceUnitTest {
                 .thenReturn(new PageImpl<>(List.of(first, second, lookahead)));
         when(mapper.toSummary(first)).thenReturn(firstResponse);
         when(mapper.toSummary(second)).thenReturn(secondResponse);
-        when(cursorCodec.encode(second.getStartDate(), "event-2")).thenReturn("next-cursor");
+        when(cursorCodec.encode(any())).thenReturn("next-cursor");
 
         var result = service.findEvents(request);
 

@@ -1,6 +1,8 @@
 package com.citypulse.catalog.utils;
 
+import com.citypulse.catalog.dto.request.EventSort;
 import com.citypulse.catalog.exception.InvalidCursorException;
+import com.citypulse.catalog.service.EventSearchCriteria.CursorPosition;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -15,35 +17,59 @@ class EventCursorCodecTest {
     private final EventCursorCodec codec = new EventCursorCodec();
 
     @Test
-    void shouldRoundTripCursorWithColonsInEventId() {
+    void roundTripsStartDateCursorWithColonsInEventId() {
         Instant start = Instant.parse("2026-08-13T10:30:00Z");
+        CursorPosition position = new CursorPosition(
+                EventSort.START_DATE, start, null, "source:event:42");
 
-        assertThat(codec.decode(codec.encode(start, "source:event:42")))
-                .satisfies(cursor -> {
-                    assertThat(cursor.startDate()).isEqualTo(start);
-                    assertThat(cursor.eventId()).isEqualTo("source:event:42");
-                });
+        CursorPosition decoded = codec.decode(codec.encode(position));
+
+        assertThat(decoded.sort()).isEqualTo(EventSort.START_DATE);
+        assertThat(decoded.startDate()).isEqualTo(start);
+        assertThat(decoded.eventId()).isEqualTo("source:event:42");
     }
 
     @Test
-    void shouldTreatMissingCursorAsAbsent() {
+    void roundTripsRelevanceCursorWithRankScore() {
+        CursorPosition position = new CursorPosition(
+                EventSort.RELEVANCE, null, 0.66, "event-1");
+
+        CursorPosition decoded = codec.decode(codec.encode(position));
+
+        assertThat(decoded.sort()).isEqualTo(EventSort.RELEVANCE);
+        assertThat(decoded.rankScore()).isEqualTo(0.66);
+        assertThat(decoded.eventId()).isEqualTo("event-1");
+    }
+
+    @Test
+    void roundTripsRelevanceCursorInTheUnenrichedTail() {
+        CursorPosition position = new CursorPosition(
+                EventSort.RELEVANCE, null, null, "event-2");
+
+        CursorPosition decoded = codec.decode(codec.encode(position));
+
+        assertThat(decoded.sort()).isEqualTo(EventSort.RELEVANCE);
+        assertThat(decoded.rankScore()).isNull();
+        assertThat(decoded.eventId()).isEqualTo("event-2");
+    }
+
+    @Test
+    void treatsMissingCursorAsAbsent() {
         assertThat(codec.decode(null)).isNull();
         assertThat(codec.decode("  ")).isNull();
     }
 
     @Test
-    void shouldRejectMalformedCursorVariants() {
-        String missingTimestamp = encoded(":event");
-        String missingEvent = encoded("123:");
-        String invalidTimestamp = encoded("not-a-number:event");
-
+    void rejectsMalformedCursors() {
         assertThatThrownBy(() -> codec.decode("not-base64!"))
                 .isInstanceOf(InvalidCursorException.class);
-        assertThatThrownBy(() -> codec.decode(missingTimestamp))
+        assertThatThrownBy(() -> codec.decode(encoded("S:123")))
                 .isInstanceOf(InvalidCursorException.class);
-        assertThatThrownBy(() -> codec.decode(missingEvent))
+        assertThatThrownBy(() -> codec.decode(encoded("S:123:")))
                 .isInstanceOf(InvalidCursorException.class);
-        assertThatThrownBy(() -> codec.decode(invalidTimestamp))
+        assertThatThrownBy(() -> codec.decode(encoded("X:1:event")))
+                .isInstanceOf(InvalidCursorException.class);
+        assertThatThrownBy(() -> codec.decode(encoded("S:not-a-number:event")))
                 .isInstanceOf(InvalidCursorException.class);
     }
 

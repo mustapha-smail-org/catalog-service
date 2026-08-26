@@ -119,6 +119,13 @@ public class EventEntity {
     )
     private EventEnrichmentEntity enrichment;
 
+    /**
+     * Denormalised from {@code event_enrichment.rank_score} by the enrichment
+     * worker so the RELEVANCE sort needs no join. NULL while unenriched.
+     */
+    @Column(name = "rank_score")
+    private Double rankScore;
+
     @Column(name = "source_updated_at")
     private Instant sourceUpdatedAt;
 
